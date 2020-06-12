@@ -13,8 +13,11 @@ TEMPLATE = app
 
 RC_FILE = logo.rc
 SOURCES += main.cpp\
-        mainwindow.cpp
+        mainwindow.cpp \
+    loginwindow.cpp
 
-HEADERS  += mainwindow.h
+HEADERS  += mainwindow.h \
+    loginwindow.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    loginwindow.ui

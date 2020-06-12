@@ -2,6 +2,9 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QLabel>
+#include <QVBoxLayout>
+#include "loginwindow.h"
 
 namespace Ui {
 class MainWindow;
