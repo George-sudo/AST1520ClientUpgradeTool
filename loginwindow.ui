@@ -113,7 +113,7 @@
               </font>
              </property>
              <property name="text">
-              <string>密码IP：</string>
+              <string>密码：</string>
              </property>
             </widget>
            </item>

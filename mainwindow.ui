@@ -56,7 +56,7 @@ QPushButton:pressed{background-color:red;}</string>
       <item>
        <spacer name="horizontalSpacer">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -83,7 +83,7 @@ QPushButton:pressed{background-color:red;}</string>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="pushButton_2">
+       <widget class="QPushButton" name="SelectFileBt">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
           <horstretch>0</horstretch>
@@ -273,17 +273,7 @@ QPushButton:pressed{background-color:red;}</string>
      </layout>
     </item>
    </layout>
-   <zorder>layoutWidget</zorder>
-   <zorder>SendCheckBox</zorder>
-   <zorder>line</zorder>
-   <zorder>SendTableWidget</zorder>
-   <zorder>horizontalSpacer_2</zorder>
-   <zorder>horizontalSpacer_3</zorder>
-   <zorder>layoutWidget_2</zorder>
-   <zorder>SendTableWidget</zorder>
-   <zorder>verticalSpacer</zorder>
    <zorder></zorder>
-   <zorder>textBrowser</zorder>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">

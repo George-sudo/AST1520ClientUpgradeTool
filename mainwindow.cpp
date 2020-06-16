@@ -1,18 +1,28 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
     this->setWindowTitle("AST1520设备升级软件");
-    //绑定复选框改变槽函数
+
+    //绑定复选框改变响应的槽函数
     connect(ui->SendTableWidget,&QTableWidget::cellChanged,this,&MainWindow::STableCheckBoxChanged);
     connect(ui->ReceiveTableWidget,&QTableWidget::cellChanged,this,&MainWindow::RTableCheckBoxChanged);
     //初始化界面
     InitView();
+
+#if 1
+    //创建连接窗口对象
+    loginWindow = new LoginWindow();
+    loginWindow->setWindowTitle("连接");
+    loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
+    loginWindow->show();
+    connect(LoginWindow::UdpSocket,&QUdpSocket::readyRead,this,&MainWindow::ReceiveUdpData);
+    connect(loginWindow,&LoginWindow::JsonOder,this,&MainWindow::SendJsonOder);
+#endif
 
 #if 1
     std::vector<QString> tem;
@@ -48,6 +58,7 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+/***初始化界面***/
 void MainWindow::InitView()
 {
     //初始化主界面
@@ -66,13 +77,7 @@ void MainWindow::InitView()
     ui->ReceiveTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);//使行列头自适应宽度，所有列平均分来填充空白部分
 //    ui->SendTableWidget->setShowGrid(false);//隐藏表格线条
 
-#if 0
-    //连接窗口
-    loginWindow = new LoginWindow();
-    loginWindow->setWindowTitle("连接");
-    loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
-    loginWindow->show();
-#endif
+
 }
 
 /***在TableWidget表追加插入一行设备信息***
@@ -201,6 +206,103 @@ void MainWindow::InsertOneDevice(std::vector<QString> &DeviceInfo)
 
 }
 
+/***打包命令数据***/
+QByteArray MainWindow::DataPackages(int actioncode, QString device_name, QString data)
+{
+    //获取当前时间的分秒
+    QString min;
+    QString sec;
+    QTime CurrentTime = QTime::currentTime();
+    min = QString("%1").arg(CurrentTime.minute());
+    sec = QString("%1").arg(CurrentTime.second());
+
+    //生成数字编号
+    if(LoginWindow::m_min==min && LoginWindow::m_sec==sec)
+    {
+        if(LoginWindow::m_num < 9)
+            ++LoginWindow::m_num;
+        else
+            LoginWindow::m_num = 0;
+    }
+    else
+    {
+        LoginWindow::m_num = 0;
+        LoginWindow::m_min = min;
+        LoginWindow::m_sec = sec;
+    }
+
+    //创建Json对象
+    QJsonObject obj;
+    obj.insert("actioncode",actioncode);
+    obj.insert("device_name",device_name);
+    obj.insert("data",data);
+    obj.insert("msg_id",(LoginWindow::m_min+LoginWindow::m_sec+QString("%1").arg(LoginWindow::m_num)).toInt());
+
+    //序列化Json对象
+    QJsonDocument jsonDoc(obj);
+    QByteArray ba = jsonDoc.toJson();
+
+    //生成CRC16
+    quint16 crc = crc16_ccitt(ba.data(),ba.size());
+    ba.append(crc>>8);
+    ba.append(crc&0x00ff);
+
+    //添加结束符
+    ba.append(END);
+
+    return ba;
+}
+
+//返回接收错误的情况
+void MainWindow::SendErrorCondition(int result, QString ErrorMessage)
+{
+    //获取当前时间的分秒
+    QString min;
+    QString sec;
+    QTime CurrentTime = QTime::currentTime();
+    min = QString("%1").arg(CurrentTime.minute());
+    sec = QString("%1").arg(CurrentTime.second());
+
+    //生成数字编号
+    if(LoginWindow::m_min==min && LoginWindow::m_sec==sec)
+    {
+        if(LoginWindow::m_num < 9)
+            ++LoginWindow::m_num;
+        else
+            LoginWindow::m_num = 0;
+    }
+    else
+    {
+        LoginWindow::m_num = 0;
+        LoginWindow::m_min = min;
+        LoginWindow::m_sec = sec;
+    }
+
+    //创建Json对象
+    QJsonObject obj;
+    obj.insert("actioncode",COMMAND_REFUSE);
+    obj.insert("device_name","KVM_PC_9500");
+    obj.insert("result",result);
+    obj.insert("return_message",ErrorMessage);
+    obj.insert("data","");
+    obj.insert("msg_id",(LoginWindow::m_min+LoginWindow::m_sec+QString("%1").arg(LoginWindow::m_num)).toInt());
+
+    //序列化Json对象
+    QJsonDocument jsonDoc(obj);
+    QByteArray ba = jsonDoc.toJson();
+
+    //生成CRC16
+    quint16 crc = crc16_ccitt(ba.data(),ba.size());
+    ba.append(crc>>8);
+    ba.append(crc&0x00ff);
+
+    //添加结束符
+    ba.append(END);
+
+    //发送接收错误情况
+    LoginWindow::UdpSocket->writeDatagram(ba.data(),ba.size(),LoginWindow::Address,LoginWindow::Port);
+}
+
 /***发送端按钮槽函数***/
 void MainWindow::SendDeviceBtSlot()
 {
@@ -214,27 +316,7 @@ void MainWindow::ReceiveDeviceBtSlot()
     qDebug() << btn->text();
 }
 
-void MainWindow::RTableCheckBoxChanged(int row, int col)
-{
-    uint count = 0;
-    //判断是否是复选框改变
-    if(col == 0)
-    {
-        for(uint i=0; i<ReceiveDeviceName.size(); i++)
-        {
-            if(ReceiveDeviceName[i]->checkState() == Qt::Checked)
-                ++count;
-        }
-        if(0 < count < ReceiveDeviceName.size())//部分选
-            ui->ReceiveCheckBox->setCheckState(Qt::PartiallyChecked);
-        if(count == 0)//全不选
-            ui->ReceiveCheckBox->setCheckState(Qt::Unchecked);
-        if(count == ReceiveDeviceName.size())//全选
-            ui->ReceiveCheckBox->setCheckState(Qt::Checked);
-    }
-
-}
-
+/***发送端复选框状态检查***/
 void MainWindow::STableCheckBoxChanged(int row, int col)
 {
     uint count = 0;
@@ -246,7 +328,7 @@ void MainWindow::STableCheckBoxChanged(int row, int col)
             if(SendDeviceName[i]->checkState() == Qt::Checked)
                 ++count;
         }
-        if(0 < count < SendDeviceName.size())//部分选
+        if(count>0 && count<ReceiveDeviceName.size())//部分选
             ui->SendCheckBox->setCheckState(Qt::PartiallyChecked);
         if(count == 0)//全不选
             ui->SendCheckBox->setCheckState(Qt::Unchecked);
@@ -255,6 +337,29 @@ void MainWindow::STableCheckBoxChanged(int row, int col)
     }
 }
 
+/***接收端复选框状态检查***/
+void MainWindow::RTableCheckBoxChanged(int row, int col)
+{
+    uint count = 0;
+    //判断是否是复选框改变
+    if(col == 0)
+    {
+        for(uint i=0; i<ReceiveDeviceName.size(); i++)
+        {
+            if(ReceiveDeviceName[i]->checkState() == Qt::Checked)
+                ++count;
+        }
+        if(count>0 && count<ReceiveDeviceName.size())//部分选
+            ui->ReceiveCheckBox->setCheckState(Qt::PartiallyChecked);
+        if(count == 0)//全不选
+            ui->ReceiveCheckBox->setCheckState(Qt::Unchecked);
+        if(count == ReceiveDeviceName.size())//全选
+            ui->ReceiveCheckBox->setCheckState(Qt::Checked);
+    }
+
+}
+
+/***SendCheckBox复选框槽函数***/
 void MainWindow::on_SendCheckBox_clicked()
 {
     if(ui->SendCheckBox->checkState() == Qt::Unchecked)
@@ -274,6 +379,7 @@ void MainWindow::on_SendCheckBox_clicked()
     }
 }
 
+/***ReceiveCheckBox复选框槽函数***/
 void MainWindow::on_ReceiveCheckBox_clicked()
 {
     if(ui->ReceiveCheckBox->checkState() == Qt::Unchecked)
@@ -291,4 +397,78 @@ void MainWindow::on_ReceiveCheckBox_clicked()
             ReceiveDeviceName[i]->setCheckState(Qt::Checked);
         }
     }
+}
+
+/***接收socket数据***/
+void MainWindow::ReceiveUdpData()
+{
+    QByteArray data = LoginWindow::UdpSocket->readAll();
+
+    //截取数据流的Json数据
+    QByteArray JsonBA = data.mid(0,data.size()-3);
+    //将QByteArray数据流装换为Json对象
+    QJsonObject obj = QJsonDocument::fromJson(JsonBA).object();
+
+    //计算Json数据的CRC
+    quint16 JsonCrc = crc16_ccitt(JsonBA.data(),JsonBA.size());
+
+    //查看是否有END结束符
+    if((uchar)data.at(data.size()-1) != END)
+    {
+        SendErrorCondition(CCBR,"No end character");
+        return;
+    }
+
+    //获取网络流中的CRC值
+    quint16 crc = (uchar)data.at(data.size()-3)*256 + (uchar)data.at(data.size()-2);
+    //比较crc
+    if(JsonCrc != crc)
+    {
+        SendErrorCondition(CRC_ERROR,"CRC check error");
+        return;
+    }
+
+    //判断返回的信息
+    switch (obj.value("actioncode").toInt()) {
+    case REPLY_PC_LOGIN_TO_SERVER://返回登录状态
+
+        break;
+    case REPLY_PC_LOGOUT_FROM_SERVER://注销登录状态
+
+        break;
+    case REPLAY_DEVICE_LIST://返回设备列表
+
+        break;
+    case REPLY_PC_UPDATE_DEVICE_LIST://响应设备升级
+
+        break;
+    case REPLY_PC_CANCEL_UPDATE_DEVICE_LIST://响应取消设备升级
+
+        break;
+    case REPLY_PC_FIRMWARE_UPLOAD_START://响应固件上传指令
+
+        break;
+    case REPLY_PC_REDLED_BLINK_TRIGGER://响应指定设备闪烁红灯
+
+        break;
+    case COMMAND_REFUSE://错误情况
+
+        break;
+    default:
+        break;
+    }
+
+}
+
+/***发送Json数据+CRC16+0xFF***/
+void MainWindow::SendJsonOder(QByteArray OderData)
+{
+    m_OderData = OderData;
+//    qDebug()<<m_OderData.data();
+    LoginWindow::UdpSocket->writeDatagram(m_OderData.data(),m_OderData.size(),LoginWindow::Address,LoginWindow::Port);
+}
+
+void MainWindow::on_SelectFileBt_clicked()
+{
+
 }
