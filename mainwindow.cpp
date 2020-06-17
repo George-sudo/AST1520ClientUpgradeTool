@@ -8,21 +8,26 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     this->setWindowTitle("AST1520设备升级软件");
 
-    //绑定复选框改变响应的槽函数
-    connect(ui->SendTableWidget,&QTableWidget::cellChanged,this,&MainWindow::STableCheckBoxChanged);
-    connect(ui->ReceiveTableWidget,&QTableWidget::cellChanged,this,&MainWindow::RTableCheckBoxChanged);
-    //初始化界面
-    InitView();
-
-#if 1
     //创建连接窗口对象
     loginWindow = new LoginWindow();
-    loginWindow->setWindowTitle("连接");
-    loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
-    loginWindow->show();
-    connect(LoginWindow::UdpSocket,&QUdpSocket::readyRead,this,&MainWindow::ReceiveUdpData);
-    connect(loginWindow,&LoginWindow::JsonOder,this,&MainWindow::SendJsonOder);
-#endif
+
+    //初始化变量
+    m_msg_id = 0;
+    TimeoutCount = 0;
+
+    //创建定时器
+    MyTimer = new QTimer();
+
+    //初始化主界面
+    InitView();
+
+    //初始化连接窗口
+    InitLoginView();
+
+    //绑定信号和槽函数
+    connect(ui->SendTableWidget,&QTableWidget::cellChanged,this,&MainWindow::STableCheckBoxChanged);
+    connect(ui->ReceiveTableWidget,&QTableWidget::cellChanged,this,&MainWindow::RTableCheckBoxChanged);
+    connect(MainWindow::MyTimer,&QTimer::timeout,this,&MainWindow::TimeoutFun);
 
 #if 1
     std::vector<QString> tem;
@@ -58,7 +63,18 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-/***初始化界面***/
+/***初始化连接窗口***/
+void MainWindow::InitLoginView()
+{
+    loginWindow->setWindowTitle("连接");
+    loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
+    loginWindow->show();
+    //连接信号槽
+    connect(LoginWindow::UdpSocket,&QUdpSocket::readyRead,this,&MainWindow::ReceiveUdpData);
+    connect(loginWindow,&LoginWindow::JsonOder,this,&MainWindow::SendJsonOder);
+}
+
+/***初始化主界面***/
 void MainWindow::InitView()
 {
     //初始化主界面
@@ -76,8 +92,6 @@ void MainWindow::InitView()
     ui->ReceiveTableWidget->horizontalHeader()->setStretchLastSection(true);//使行列头自适应宽度，最后一列将会填充空白部分
     ui->ReceiveTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);//使行列头自适应宽度，所有列平均分来填充空白部分
 //    ui->SendTableWidget->setShowGrid(false);//隐藏表格线条
-
-
 }
 
 /***在TableWidget表追加插入一行设备信息***
@@ -253,7 +267,7 @@ QByteArray MainWindow::DataPackages(int actioncode, QString device_name, QString
     return ba;
 }
 
-//返回接收错误的情况
+/***返回接收错误的情况***/
 void MainWindow::SendErrorCondition(int result, QString ErrorMessage)
 {
     //获取当前时间的分秒
@@ -300,7 +314,7 @@ void MainWindow::SendErrorCondition(int result, QString ErrorMessage)
     ba.append(END);
 
     //发送接收错误情况
-    LoginWindow::UdpSocket->writeDatagram(ba.data(),ba.size(),LoginWindow::Address,LoginWindow::Port);
+    LoginWindow::UdpSocket->writeDatagram(ba.data(),ba.size(),LoginWindow::ServerAddress,LoginWindow::ServerPort);
 }
 
 /***发送端按钮槽函数***/
@@ -309,6 +323,7 @@ void MainWindow::SendDeviceBtSlot()
     QPushButton* btn = (QPushButton*)sender();  // 获取到了发送该信号按钮的指针
     qDebug() << btn->text();
 }
+
 /***接收端按钮槽函数***/
 void MainWindow::ReceiveDeviceBtSlot()
 {
@@ -402,73 +417,199 @@ void MainWindow::on_ReceiveCheckBox_clicked()
 /***接收socket数据***/
 void MainWindow::ReceiveUdpData()
 {
-    QByteArray data = LoginWindow::UdpSocket->readAll();
-
-    //截取数据流的Json数据
-    QByteArray JsonBA = data.mid(0,data.size()-3);
-    //将QByteArray数据流装换为Json对象
-    QJsonObject obj = QJsonDocument::fromJson(JsonBA).object();
-
-    //计算Json数据的CRC
-    quint16 JsonCrc = crc16_ccitt(JsonBA.data(),JsonBA.size());
-
-    //查看是否有END结束符
-    if((uchar)data.at(data.size()-1) != END)
+    qDebug()<<"************";
+    //判断数据是否为空
+    if(LoginWindow::UdpSocket->pendingDatagramSize()>0)
     {
-        SendErrorCondition(CCBR,"No end character");
-        return;
-    }
+        QByteArray data;
+        data.resize(LoginWindow::UdpSocket->pendingDatagramSize());
+        LoginWindow::UdpSocket->readDatagram(data.data(),data.size());
 
-    //获取网络流中的CRC值
-    quint16 crc = (uchar)data.at(data.size()-3)*256 + (uchar)data.at(data.size()-2);
-    //比较crc
-    if(JsonCrc != crc)
+        qDebug()<<data;
+        //截取数据流的Json数据
+        QByteArray JsonBA = data.mid(0,data.size()-3);
+        //将QByteArray数据流装换为Json对象
+        QJsonObject obj = QJsonDocument::fromJson(JsonBA).object();
+
+        //计算Json数据的CRC
+        quint16 JsonCrc = crc16_ccitt(JsonBA.data(),JsonBA.size());
+
+        //查看是否有END结束符
+        if((uchar)data.at(data.size()-1) != END)
+        {
+            SendErrorCondition(CCBR,"No end character");
+            return;
+        }
+
+        //获取网络流中的CRC值
+        quint16 crc = (uchar)data.at(data.size()-3)*256 + (uchar)data.at(data.size()-2);
+        //比较crc
+        if(JsonCrc != crc)
+        {
+            SendErrorCondition(CRC_ERROR,"CRC check error");
+            return;
+        }
+
+        //通过msg_id来判断，接收到的数据是否为本次需要的数据
+        if(m_msg_id == obj.value("msg_id").toInt())
+        {
+            TimeoutCount = 0;
+            MyTimer->stop();
+
+            //判断返回的信息
+            switch (obj.value("actioncode").toInt()) {
+            case REPLY_PC_LOGIN_TO_SERVER://返回登录状态
+                //loginWindow->hide();
+                break;
+            case REPLY_PC_LOGOUT_FROM_SERVER://注销登录状态
+
+                break;
+            case REPLAY_DEVICE_LIST://返回设备列表
+
+                break;
+            case REPLY_PC_UPDATE_DEVICE_LIST://响应设备升级
+
+                break;
+            case REPLY_PC_CANCEL_UPDATE_DEVICE_LIST://响应取消设备升级
+
+                break;
+            case REPLY_PC_FIRMWARE_UPLOAD_START://响应固件上传指令
+
+                break;
+            case REPLY_PC_REDLED_BLINK_TRIGGER://响应指定设备闪烁红灯
+
+                break;
+            case COMMAND_REFUSE://错误情况
+
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    else
     {
-        SendErrorCondition(CRC_ERROR,"CRC check error");
-        return;
+        MyTimer->stop();
+
+        //服务器异常的提醒
+        QMessageBox::information(NULL, "提醒", "服务器异常，请重新登录！");
+
+        //显示登录窗口
+        loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
+        loginWindow->show();
+
+        //此部分是为了解决以下发生的情况
+        //1、当服务器未启动，就对socket发送数据，此时socket会发出readyRead信号，但是socket里的数据为空
+        //2、当1发生之后，服务启动后，再尝试对socket发送数据，socket不会发出readyRead信号（能发送数据到服务器，服务器也能正常返回信息）
+        delete LoginWindow::UdpSocket;
+        LoginWindow::UdpSocket = new QUdpSocket(this);
+        LoginWindow::UdpSocket->bind(50010,QAbstractSocket::DontShareAddress);//绑定本地端口号
+        connect(LoginWindow::UdpSocket,&QUdpSocket::readyRead,this,&MainWindow::ReceiveUdpData);
     }
-
-    //判断返回的信息
-    switch (obj.value("actioncode").toInt()) {
-    case REPLY_PC_LOGIN_TO_SERVER://返回登录状态
-
-        break;
-    case REPLY_PC_LOGOUT_FROM_SERVER://注销登录状态
-
-        break;
-    case REPLAY_DEVICE_LIST://返回设备列表
-
-        break;
-    case REPLY_PC_UPDATE_DEVICE_LIST://响应设备升级
-
-        break;
-    case REPLY_PC_CANCEL_UPDATE_DEVICE_LIST://响应取消设备升级
-
-        break;
-    case REPLY_PC_FIRMWARE_UPLOAD_START://响应固件上传指令
-
-        break;
-    case REPLY_PC_REDLED_BLINK_TRIGGER://响应指定设备闪烁红灯
-
-        break;
-    case COMMAND_REFUSE://错误情况
-
-        break;
-    default:
-        break;
-    }
-
 }
 
 /***发送Json数据+CRC16+0xFF***/
-void MainWindow::SendJsonOder(QByteArray OderData)
+void MainWindow::SendJsonOder(int SendState,QByteArray OderData)
 {
-    m_OderData = OderData;
-//    qDebug()<<m_OderData.data();
-    LoginWindow::UdpSocket->writeDatagram(m_OderData.data(),m_OderData.size(),LoginWindow::Address,LoginWindow::Port);
+    //正常，非重发情况
+    if(SendState == NormalToSend)
+    {
+        m_OderData = OderData;
+        //qDebug()<<m_OderData.size();
+
+        //获取保存即将发送的msg_id,用于判断接收的数据是否为PC端想要的数据
+        QByteArray JsonBA = m_OderData.mid(0,m_OderData.size()-3);
+        QJsonObject obj = QJsonDocument::fromJson(JsonBA).object();
+        m_msg_id = obj.value("msg_id").toInt();
+
+        //发送数据
+        LoginWindow::UdpSocket->writeDatagram(m_OderData.data(),m_OderData.size(),LoginWindow::ServerAddress,LoginWindow::ServerPort);
+
+        //启动定时器
+        MyTimer->start(3000);
+    }
+
+    //超时重发
+    if(SendState == TimeoutRetransmission)
+    {
+        LoginWindow::UdpSocket->writeDatagram(m_OderData.data(),m_OderData.size(),LoginWindow::ServerAddress,LoginWindow::ServerPort);
+
+        //启动定时器
+        MyTimer->start(3000);
+    }
+
+    //错误重发
+    if(SendState == ErrorRetransmission)
+    {
+        QByteArray JsonBA = m_OderData.mid(0,m_OderData.size()-3);
+        QJsonObject obj = QJsonDocument::fromJson(JsonBA).object();
+
+        //更新msg_id
+        QString min;
+        QString sec;
+        QTime CurrentTime = QTime::currentTime();
+        min = QString("%1").arg(CurrentTime.minute());
+        sec = QString("%1").arg(CurrentTime.second());
+        if(LoginWindow::m_min==min && LoginWindow::m_sec==sec)
+        {
+            if(LoginWindow::m_num < 9)
+                ++LoginWindow::m_num;
+            else
+                LoginWindow::m_num = 0;
+        }
+        else
+        {
+            LoginWindow::m_num = 0;
+            LoginWindow::m_min = min;
+            LoginWindow::m_sec = sec;
+        }
+        obj["msg_id"] = (LoginWindow::m_min+LoginWindow::m_sec+QString("%1").arg(LoginWindow::m_num)).toInt();
+
+        //保存本次发送的msg_id，用于判断接收的数据是否为PC端想要的数据
+        m_msg_id = (LoginWindow::m_min+LoginWindow::m_sec+QString("%1").arg(LoginWindow::m_num)).toInt();
+
+        //更新CRC16
+        QJsonDocument jsonDoc(obj);
+        QByteArray ba = jsonDoc.toJson();
+        quint16 crc = crc16_ccitt(ba.data(),ba.size());
+        ba.append(crc>>8);
+        ba.append(crc&0x00ff);
+
+        //保存该条数据
+        m_OderData = ba;
+
+        //重发
+        LoginWindow::UdpSocket->writeDatagram(m_OderData.data(),m_OderData.size(),LoginWindow::ServerAddress,LoginWindow::ServerPort);
+
+        //启动定时器
+        MyTimer->start(3000);
+    }
 }
 
 void MainWindow::on_SelectFileBt_clicked()
 {
 
+}
+
+/***超时重传***/
+void MainWindow::TimeoutFun()
+{
+    ++TimeoutCount;
+    if(TimeoutCount == 2)
+    {
+        TimeoutCount = 0;
+        MyTimer->stop();
+
+        //服务器异常的提醒
+        QMessageBox::information(NULL, "提醒", "服务器异常，请重新登录！");
+
+        //显示登录窗口
+        loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
+        loginWindow->show();
+    }
+    else
+    {
+        //超时重发信息
+       SendJsonOder(TimeoutRetransmission, m_OderData);
+    }
 }

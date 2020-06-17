@@ -14,6 +14,8 @@
 #include <QJsonObject>
 #include "loginwindow.h"
 #include <vector>
+#include <QTimer>
+#include <QMessageBox>
 #include "crc.h"
 
 
@@ -31,6 +33,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
     void InitView();
+    void InitLoginView();
     void InsertOneDevice(std::vector<QString> &eviceInfo);
     QByteArray DataPackages(int actioncode, QString device_name, QString data);
     void SendErrorCondition(int result, QString ErrorMessage);
@@ -45,8 +48,9 @@ public slots:
 private slots:
     void on_SendCheckBox_clicked();
     void on_ReceiveCheckBox_clicked();
-    void SendJsonOder(QByteArray OderData);
+    void SendJsonOder(int SendState,QByteArray OderData);
     void on_SelectFileBt_clicked();
+    void TimeoutFun();
 
 private:
     //返回result码
@@ -82,14 +86,24 @@ private:
     enum{
        COMMAND_REFUSE = 5555
     };
+    //结束符
     enum{
         END = 0xff
+    };
+    //发送状态
+    enum{
+        NormalToSend,
+        TimeoutRetransmission,
+        ErrorRetransmission
     };
 
 private:
     Ui::MainWindow *ui;
     LoginWindow *loginWindow;
     QByteArray m_OderData;
+    int m_msg_id;
+    QTimer *MyTimer;
+    int TimeoutCount;
 
     //发送端
     std::vector<QTableWidgetItem*> SendDeviceName;

@@ -2,8 +2,8 @@
 #include "ui_loginwindow.h"
 
 QUdpSocket *LoginWindow::UdpSocket = nullptr;
-int LoginWindow::Port = 50010;
-QHostAddress LoginWindow::Address;
+int LoginWindow::ServerPort = 50010;
+QHostAddress LoginWindow::ServerAddress;
 QString LoginWindow::m_min = "NULL";
 QString LoginWindow::m_sec = "NULL";
 int LoginWindow::m_num = 0;
@@ -15,7 +15,7 @@ LoginWindow::LoginWindow(QWidget *parent) :
     ui->setupUi(this);
 
     LoginWindow::UdpSocket = new QUdpSocket(this);
-    UdpSocket->bind(Port,QUdpSocket::ShareAddress);
+    LoginWindow::UdpSocket->bind(50010,QAbstractSocket::DontShareAddress);//绑定本地端口号
 }
 
 LoginWindow::~LoginWindow()
@@ -25,7 +25,8 @@ LoginWindow::~LoginWindow()
 
 void LoginWindow::on_QuitBt_clicked()
 {
-
+    QApplication* app;
+    app->quit();
 }
 
 void LoginWindow::on_LoginBt_clicked()
@@ -72,9 +73,10 @@ void LoginWindow::on_LoginBt_clicked()
     ba.append(END);
 
     //设置ip
-    LoginWindow::Address.setAddress(ui->IpLE->text());
+    LoginWindow::ServerAddress.setAddress(ui->IpLE->text());
+//    qDebug()<<UdpSocket->bind(Address,Port,QAbstractSocket::ShareAddress);
 
     //发出登录服务器命令信号
-    emit JsonOder(ba);
+    emit JsonOder(NormalToSend,ba);
 }
 

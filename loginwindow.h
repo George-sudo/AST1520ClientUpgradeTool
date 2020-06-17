@@ -22,8 +22,8 @@ public:
     ~LoginWindow();
 
     static QUdpSocket *UdpSocket;
-    static int Port;
-    static QHostAddress Address;
+    static int ServerPort;
+    static QHostAddress ServerAddress;
     static QString m_min;
     static QString m_sec;
     static int m_num;
@@ -40,12 +40,19 @@ public:
         COMMAND_REFUSE = 5555
     };
 
+    //结束符号
     enum{
         END = 0xff
     };
+    //发送状态
+    enum{
+        NormalToSend,
+        TimeoutRetransmission,
+        ErrorRetransmission
+    };
 
 signals:
-    void JsonOder(QByteArray OderData);
+    void JsonOder(int SendState,QByteArray OderData);
 
 private slots:
     void on_QuitBt_clicked();

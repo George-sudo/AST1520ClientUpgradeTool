@@ -1,5 +1,6 @@
 #include "crc.h"
 
+
 quint16 crc16_ccitt(const char *buf, int len)
 {
     register int counter;
