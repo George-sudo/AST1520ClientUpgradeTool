@@ -254,28 +254,6 @@ QByteArray MainWindow::DataPackages(int actioncode, QString device_name, QString
 /***返回接收错误的情况***/
 void MainWindow::SendErrorCondition(int result, QString ErrorMessage)
 {
-    //获取当前时间的分秒
-    QString min;
-    QString sec;
-    QTime CurrentTime = QTime::currentTime();
-    min = QString("%1").arg(CurrentTime.minute());
-    sec = QString("%1").arg(CurrentTime.second());
-
-    //生成数字编号
-    if(LoginWindow::m_min==min && LoginWindow::m_sec==sec)
-    {
-        if(LoginWindow::m_num < 9)
-            ++LoginWindow::m_num;
-        else
-            LoginWindow::m_num = 0;
-    }
-    else
-    {
-        LoginWindow::m_num = 0;
-        LoginWindow::m_min = min;
-        LoginWindow::m_sec = sec;
-    }
-
     //创建Json对象
     QJsonObject obj;
     obj.insert("actioncode",COMMAND_REFUSE);
@@ -283,7 +261,7 @@ void MainWindow::SendErrorCondition(int result, QString ErrorMessage)
     obj.insert("result",result);
     obj.insert("return_message",ErrorMessage);
     obj.insert("data","");
-    obj.insert("msg_id",(LoginWindow::m_min+LoginWindow::m_sec+QString("%1").arg(LoginWindow::m_num)).toInt());
+    obj.insert("msg_id",m_msg_id);
 
     //序列化Json对象
     QJsonDocument jsonDoc(obj);
