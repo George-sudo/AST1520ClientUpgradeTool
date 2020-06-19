@@ -592,7 +592,7 @@ void MainWindow::ReceiveUdpData()
                 break;
             //错误情况
             case COMMAND_REFUSE:
-
+                SendJsonOder(ErrorRetransmission, m_OderData);
                 break;
             default:
                 break;
