@@ -29,32 +29,13 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->ReceiveTableWidget,&QTableWidget::cellChanged,this,&MainWindow::RTableCheckBoxChanged);
     connect(MainWindow::MyTimer,&QTimer::timeout,this,&MainWindow::TimeoutFun);
 
-#if 1
+#if 0
     std::vector<QString> tem;
     tem.push_back("tx2083");
     tem.push_back("V1.0.1");
     tem.push_back("424C450018A6");
     tem.push_back("TX");
     InsertOneDevice(tem);
-    std::vector<QString> tem1;
-    tem1.push_back("tx2020");
-    tem1.push_back("V1.2.2");
-    tem1.push_back("asdfasdfawe");
-    tem1.push_back("TX");
-    InsertOneDevice(tem1);
-
-    std::vector<QString> tem2;
-    tem2.push_back("rx2083");
-    tem2.push_back("V1.0.1");
-    tem2.push_back("424C450018A6");
-    tem2.push_back("RX");
-    InsertOneDevice(tem2);
-    std::vector<QString> tem3;
-    tem3.push_back("rx2020");
-    tem3.push_back("V1.2.2");
-    tem3.push_back("asdfasdfawe");
-    tem3.push_back("RX");
-    InsertOneDevice(tem3);
 #endif
 }
 
@@ -94,18 +75,20 @@ void MainWindow::InitView()
 //    ui->SendTableWidget->setShowGrid(false);//隐藏表格线条
 }
 
-/***在TableWidget表追加插入一行设备信息***
- * DeviceInfo参数说明
- * DeviceInfo[0]:设备名称
- * DeviceInfo[1]:设备版本
- * DeviceInfo[2]：设备MAC地址
- * DeviceInfo[3]：设备类型（TX/RX）***/
+/****在TableWidget表追加插入一行设备信息****
+     * DeviceInfo参数说明
+     * DeviceInfo[0]:设备名称
+     * DeviceInfo[1]:设备版本
+     * DeviceInfo[2]：设备MAC地址
+     * DeviceInfo[3]：设备类型（TX/RX）
+**************************************/
 void MainWindow::InsertOneDevice(std::vector<QString> &DeviceInfo)
 {
     //发送端
     if(DeviceInfo[3] == "TX")
     {
         int row = SendDeviceName.size();
+
         //增加一行数据
         ui->SendTableWidget->setRowCount(row+1);
 
@@ -123,7 +106,7 @@ void MainWindow::InsertOneDevice(std::vector<QString> &DeviceInfo)
 
         //保存设备的MAC地址
         SendDeviceMAC.push_back(DeviceInfo[2]);
-        qDebug()<<"MAC地址:"<<SendDeviceMAC[row];
+        //qDebug()<<"MAC地址:"<<SendDeviceMAC[row];
 
         //设置显示升级状态栏
         SendDeviceBar.push_back(new QProgressBar());
@@ -152,12 +135,13 @@ void MainWindow::InsertOneDevice(std::vector<QString> &DeviceInfo)
 
         //设置显示操作栏按钮
         SendDeviceBt.push_back(new QPushButton);
-        SendDeviceBt[row]->setText(QString("点亮设备%1").arg(row+1));
-        SendDeviceBt[row]->setStyleSheet("QPushButton{background-color:rgb(85, 170, 255);border-radius: 10px;  border: 2px groove gray;}" // 按键本色
+        SendDeviceBt[row]->setText(QString("点亮设备%1LED").arg(row+1));
+        SendDeviceBt[row]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);border-radius: 10px;  border: 2px groove gray;}" // 按键本色
                 "QPushButton:hover{background-color:rgb(255, 158, 0); color: black;}"  // 鼠标停放时的色彩
                 "QPushButton:pressed{background-color:red;}");
         connect(SendDeviceBt[row],&QPushButton::clicked,this,&MainWindow::SendDeviceBtSlot);
         ui->SendTableWidget->setCellWidget(row,3,SendDeviceBt[row]);
+
     }
 
     //接受端
@@ -181,7 +165,7 @@ void MainWindow::InsertOneDevice(std::vector<QString> &DeviceInfo)
 
         //保存设备的MAC地址
         ReceiveDeviceMAC.push_back(DeviceInfo[2]);
-        qDebug()<<"MAC地址:"<<ReceiveDeviceMAC[row];
+        //qDebug()<<"MAC地址:"<<ReceiveDeviceMAC[row];
 
         //设置显示升级状态栏
         ReceiveDeviceBar.push_back(new QProgressBar());
@@ -210,8 +194,8 @@ void MainWindow::InsertOneDevice(std::vector<QString> &DeviceInfo)
 
         //设置显示操作栏按钮
         ReceiveDeviceBt.push_back(new QPushButton);
-        ReceiveDeviceBt[row]->setText(QString("点亮设备%1").arg(row+1));
-        ReceiveDeviceBt[row]->setStyleSheet("QPushButton{background-color:rgb(85, 170, 255);border-radius: 10px;  border: 2px groove gray;}" // 按键本色
+        ReceiveDeviceBt[row]->setText(QString("点亮设备%1LED").arg(row+1));
+        ReceiveDeviceBt[row]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);border-radius: 10px;  border: 2px groove gray;}" // 按键本色
                 "QPushButton:hover{background-color:rgb(255, 158, 0); color: black;}"  // 鼠标停放时的色彩
                 "QPushButton:pressed{background-color:red;}");
         connect(ReceiveDeviceBt[row],&QPushButton::clicked,this,&MainWindow::ReceiveDeviceBtSlot);
@@ -317,18 +301,120 @@ void MainWindow::SendErrorCondition(int result, QString ErrorMessage)
     LoginWindow::UdpSocket->writeDatagram(ba.data(),ba.size(),LoginWindow::ServerAddress,LoginWindow::ServerPort);
 }
 
-/***发送端按钮槽函数***/
-void MainWindow::SendDeviceBtSlot()
+/***将获取到的设备列表处理显示***/
+void MainWindow::DeviceListDataManage(QString DeviceList)
 {
-    QPushButton* btn = (QPushButton*)sender();  // 获取到了发送该信号按钮的指针
-    qDebug() << btn->text();
+    uint SendDeviceCount = SendDeviceName.size();
+    //刷新窗口界面前，先将tablewidget表格清空
+    for(uint i=0; i<SendDeviceCount; ++i)
+    {
+        delete SendDeviceName[i];
+        delete SendDeviceVersion[i];
+        delete SendDeviceLabel[i];
+        delete SendDeviceBar[i];
+        //delete SendDeviceBt[i];//导致程序异常结束
+        SendDeviceName.clear();
+        SendDeviceVersion.clear();
+        SendDeviceLabel.clear();
+        SendDeviceBar.clear();
+        SendDeviceBt.clear();
+        SendDeviceMAC.clear();
+    }
+    uint ReceiveDeviceCount = ReceiveDeviceName.size();
+    for(uint j=0; j<ReceiveDeviceCount; ++j)
+    {
+        delete ReceiveDeviceName[j];
+        delete ReceiveDeviceVersion[j];
+        delete ReceiveDeviceLabel[j];
+        delete ReceiveDeviceBar[j];
+        //delete ReceiveDeviceBt[i];//导致程序异常结束
+        ReceiveDeviceName.clear();
+        ReceiveDeviceVersion.clear();
+        ReceiveDeviceLabel.clear();
+        ReceiveDeviceBar.clear();
+        ReceiveDeviceBt.clear();
+        ReceiveDeviceMAC.clear();
+    }
+    ui->SendTableWidget->clear();
+    ui->ReceiveTableWidget->clear();
+    ui->SendTableWidget->setRowCount(0);
+    ui->ReceiveTableWidget->setRowCount(0);
+    InitView();
+
+    if(DeviceList.size() > 0)
+    {
+        QStringList devices = DeviceList.split(";");
+        qDebug()<<"devices.size:"<<devices.size();
+        uint DevicesCount = devices.size();
+        for(uint k=0; k<DevicesCount; ++k)
+        {
+            QString device = devices.at(k);
+            QStringList deviceItem = device.split(",");
+
+            std::vector<QString> tem;
+            tem.push_back(deviceItem.at(0));
+            tem.push_back(deviceItem.at(1));
+            tem.push_back(deviceItem.at(2));
+            tem.push_back(deviceItem.at(4));
+            InsertOneDevice(tem);
+        }
+    }
 }
 
-/***接收端按钮槽函数***/
+void MainWindow::ChangeLedBtStateText(QString DevideMac, QString ReturnMessage)
+{
+    std::vector<QString>::iterator SIter = std::find(SendDeviceMAC.begin(),SendDeviceMAC.end(),DevideMac);
+    if(SIter == SendDeviceMAC.end())
+    {
+        std::vector<QString>::iterator RIter = std::find(ReceiveDeviceMAC.begin(),ReceiveDeviceMAC.end(),DevideMac);
+        int index = std::distance(ReceiveDeviceMAC.begin(),RIter);
+        QString str = ReceiveDeviceBt[index]->text().mid(ReceiveDeviceBt[index]->text().size()-4,4);
+        if(ReturnMessage.contains("start",Qt::CaseInsensitive))
+        {
+            ReceiveDeviceBt[index]->setText("关闭设备"+str);
+            ReceiveDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(85, 170, 255);}");
+        }
+        if(ReturnMessage.contains("stop",Qt::CaseInsensitive))
+        {
+            ReceiveDeviceBt[index]->setText("点亮设备"+str);
+            ReceiveDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);}");
+        }
+    }
+    else
+    {
+        int index = std::distance(SendDeviceMAC.begin(),SIter);
+        QString str = SendDeviceBt[index]->text().mid(SendDeviceBt[index]->text().size()-4,4);
+        if(ReturnMessage.contains("start",Qt::CaseInsensitive))
+        {
+            SendDeviceBt[index]->setText("关闭设备"+str);
+            SendDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(85, 170, 255);}");
+        }
+        if(ReturnMessage.contains("stop",Qt::CaseInsensitive))
+        {
+            SendDeviceBt[index]->setText("点亮设备"+str);
+            SendDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);}");
+        }
+    }
+}
+
+/***发送端点亮设备按钮槽函数***/
+void MainWindow::SendDeviceBtSlot()
+{
+    QPushButton* bt = (QPushButton*)sender();  // 获取到了发送该信号按钮的指针
+    QString btn = bt->text();
+    int num = btn[btn.size()-4].toLatin1()-48;
+    QByteArray ba = DataPackages(PC_REDLED_BLINK_TRIGGER,"KVM_PC_9500",SendDeviceMAC[num-1]);
+    SendJsonOder(NormalToSend,ba);
+}
+
+/***接收端点亮设备按钮槽函数***/
 void MainWindow::ReceiveDeviceBtSlot()
 {
-    QPushButton* btn = (QPushButton*)sender();  // 获取到了发送该信号按钮的指针
-    qDebug() << btn->text();
+    QPushButton* bt = (QPushButton*)sender();  // 获取到了发送该信号按钮的指针
+    QString btn = bt->text();
+    int num = btn[btn.size()-4].toLatin1()-48;
+    QByteArray ba = DataPackages(PC_REDLED_BLINK_TRIGGER,"KVM_PC_9500",ReceiveDeviceMAC[num-1]);
+    SendJsonOder(NormalToSend,ba);
 }
 
 /***发送端复选框状态检查***/
@@ -417,7 +503,7 @@ void MainWindow::on_ReceiveCheckBox_clicked()
 /***接收socket数据***/
 void MainWindow::ReceiveUdpData()
 {
-    qDebug()<<"************";
+    qDebug()<<"******数据到来******";
     //判断数据是否为空
     if(LoginWindow::UdpSocket->pendingDatagramSize()>0)
     {
@@ -425,7 +511,7 @@ void MainWindow::ReceiveUdpData()
         data.resize(LoginWindow::UdpSocket->pendingDatagramSize());
         LoginWindow::UdpSocket->readDatagram(data.data(),data.size());
 
-        qDebug()<<data;
+        qDebug()<<data.data();
         //截取数据流的Json数据
         QByteArray JsonBA = data.mid(0,data.size()-3);
         //将QByteArray数据流装换为Json对象
@@ -456,30 +542,78 @@ void MainWindow::ReceiveUdpData()
             TimeoutCount = 0;
             MyTimer->stop();
 
-            //判断返回的信息
+            //判断消息是否需要长时间返回宿舍
+            if(obj.value("result").toInt() == LTP)
+            {
+                return;
+            }
+
             switch (obj.value("actioncode").toInt()) {
-            case REPLY_PC_LOGIN_TO_SERVER://返回登录状态
-                //loginWindow->hide();
+            //返回登录状态
+            case REPLY_PC_LOGIN_TO_SERVER:
+                if(obj.value("result").toInt() == SUCCEED)
+                {
+                    loginWindow->hide();
+                    on_RefreshListBt_clicked();
+                }
+                if(obj.value("result").toInt() == SVRJT)
+                {
+                    QMessageBox::information(NULL, "提醒", "密码或者用户名错误，请重新登录！");
+                }
                 break;
-            case REPLY_PC_LOGOUT_FROM_SERVER://注销登录状态
+            //返回注销登录状态
+            case REPLY_PC_LOGOUT_FROM_SERVER:
+                if(obj.value("result").toInt() == SUCCEED)
+                {
+                    //显示登录窗口
+                    loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
+                    loginWindow->show();
+                }
+                if(obj.value("result").toInt() == SVRJT)
+                {
+                    QMessageBox::information(NULL, "提醒", "密码或者用户名错误，退出失败！");
+                }
+                break;
+            //返回设备列表
+            case REPLAY_DEVICE_LIST:
+                DeviceListDataManage(obj.value("data").toString());
+                break;
+            //响应设备升级
+            case REPLY_PC_UPDATE_DEVICE_LIST:
+                //接下来就是等待服务器返回设备升级的状态
 
                 break;
-            case REPLAY_DEVICE_LIST://返回设备列表
+            //响应取消设备升级
+            case REPLY_PC_CANCEL_UPDATE_DEVICE_LIST:
 
                 break;
-            case REPLY_PC_UPDATE_DEVICE_LIST://响应设备升级
+            //响应固件上传指令
+            case REPLY_PC_FIRMWARE_UPLOAD_START:
+                //开始上传固件
+
+                //上传固件完成之后，发送升级设备命令
 
                 break;
-            case REPLY_PC_CANCEL_UPDATE_DEVICE_LIST://响应取消设备升级
+            //响应指定设备闪烁红灯
+            case REPLY_PC_REDLED_BLINK_TRIGGER:
+                if(obj.value("result").toInt() == SUCCEED)
+                {
+                    QString mac = obj.value("data").toString();
+                    QString message = obj.value("return_message").toString();
+                    //根据返回的信息改变按钮文本
+                    ChangeLedBtStateText(mac, message);
+                }
+                break;
+            //返回设备升级完成状态
+            case UPDATE_COMPLETED:
 
                 break;
-            case REPLY_PC_FIRMWARE_UPLOAD_START://响应固件上传指令
+            //返回设备升级状态
+            case PROGRESS_UPDATE:
 
                 break;
-            case REPLY_PC_REDLED_BLINK_TRIGGER://响应指定设备闪烁红灯
-
-                break;
-            case COMMAND_REFUSE://错误情况
+            //错误情况
+            case COMMAND_REFUSE:
 
                 break;
             default:
@@ -515,7 +649,6 @@ void MainWindow::SendJsonOder(int SendState,QByteArray OderData)
     if(SendState == NormalToSend)
     {
         m_OderData = OderData;
-        //qDebug()<<m_OderData.size();
 
         //获取保存即将发送的msg_id,用于判断接收的数据是否为PC端想要的数据
         QByteArray JsonBA = m_OderData.mid(0,m_OderData.size()-3);
@@ -586,11 +719,6 @@ void MainWindow::SendJsonOder(int SendState,QByteArray OderData)
     }
 }
 
-void MainWindow::on_SelectFileBt_clicked()
-{
-
-}
-
 /***超时重传***/
 void MainWindow::TimeoutFun()
 {
@@ -609,7 +737,46 @@ void MainWindow::TimeoutFun()
     }
     else
     {
+        qDebug("重发");
         //超时重发信息
        SendJsonOder(TimeoutRetransmission, m_OderData);
     }
+}
+
+
+void MainWindow::on_SelectFileBt_clicked()
+{
+    QString str = SendDeviceBt[0]->text().mid(SendDeviceBt[0]->text().size()-4,4);
+    SendDeviceBt[0]->setText("关闭设备"+str);
+    SendDeviceBt[0]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);}");
+}
+
+void MainWindow::on_QuitLoginBt_clicked()
+{
+    QByteArray ba = DataPackages(PC_LOGOUT_FROM_SERVER,"KVM_PC_9500", LoginWindow::User+','+LoginWindow::Pass);
+    SendJsonOder(NormalToSend,ba);
+}
+
+void MainWindow::on_StartUpgradeBt_clicked()
+{
+//    qDebug()<<"发送端的MAC：";
+//    for(int i=0; i<SendDeviceMAC.size(); ++i)
+//    {
+//        qDebug()<<SendDeviceMAC[i];
+//    }
+
+//    qDebug()<<"接收端的MAC：";
+//    for(int i=0; i<ReceiveDeviceMAC.size(); ++i)
+//    {
+//        qDebug()<<ReceiveDeviceMAC[i];
+//    }
+//    QTableWidgetItem::checkState();
+    //固件上传命令发送
+    qDebug()<<SendDeviceName[0]->checkState();
+}
+
+void MainWindow::on_RefreshListBt_clicked()
+{
+    QByteArray ba = DataPackages(PC_GET_DEVICE_LIST,"KVM_PC_9500", "");
+    SendJsonOder(NormalToSend,ba);
 }

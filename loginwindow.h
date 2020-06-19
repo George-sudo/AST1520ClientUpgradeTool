@@ -27,6 +27,8 @@ public:
     static QString m_min;
     static QString m_sec;
     static int m_num;
+    static QString User;
+    static QString Pass;
 
     //命令码
     enum{

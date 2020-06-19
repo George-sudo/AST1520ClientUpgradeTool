@@ -37,6 +37,8 @@ public:
     void InsertOneDevice(std::vector<QString> &eviceInfo);
     QByteArray DataPackages(int actioncode, QString device_name, QString data);
     void SendErrorCondition(int result, QString ErrorMessage);
+    void DeviceListDataManage(QString DeviceList);
+    void ChangeLedBtStateText(QString DevideMac, QString ReturnMessage);
 
 public slots:
     void SendDeviceBtSlot();
@@ -51,6 +53,10 @@ private slots:
     void SendJsonOder(int SendState,QByteArray OderData);
     void on_SelectFileBt_clicked();
     void TimeoutFun();
+
+    void on_QuitLoginBt_clicked();
+    void on_StartUpgradeBt_clicked();
+    void on_RefreshListBt_clicked();
 
 private:
     //返回result码
@@ -70,7 +76,7 @@ private:
         PC_UPDATE_DEVICE_LIST,
         PC_CANCEL_UPDATE_DEVICE_LIST,
         PC_FIRMWARE_UPLOAD_START,
-        PC_REDLED_BLINK_TRIGGER,
+        PC_REDLED_BLINK_TRIGGER
     };
     //Server->PC
     enum{
@@ -80,7 +86,9 @@ private:
         REPLY_PC_UPDATE_DEVICE_LIST,
         REPLY_PC_CANCEL_UPDATE_DEVICE_LIST,
         REPLY_PC_FIRMWARE_UPLOAD_START,
-        REPLY_PC_REDLED_BLINK_TRIGGER
+        REPLY_PC_REDLED_BLINK_TRIGGER,
+        UPDATE_COMPLETED,
+        PROGRESS_UPDATE
     };
     //PC<->Server
     enum{
@@ -112,6 +120,7 @@ private:
     std::vector<QProgressBar*> SendDeviceBar;
     std::vector<QPushButton*> SendDeviceBt;
     std::vector<QString> SendDeviceMAC;
+
     //接收端
     std::vector<QTableWidgetItem*> ReceiveDeviceName;
     std::vector<QTableWidgetItem*> ReceiveDeviceVersion;

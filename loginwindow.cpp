@@ -6,6 +6,8 @@ int LoginWindow::ServerPort = 50010;
 QHostAddress LoginWindow::ServerAddress;
 QString LoginWindow::m_min = "NULL";
 QString LoginWindow::m_sec = "NULL";
+QString LoginWindow::User = "NULL";
+QString LoginWindow::Pass = "NULL";
 int LoginWindow::m_num = 0;
 
 LoginWindow::LoginWindow(QWidget *parent) :
@@ -53,11 +55,15 @@ void LoginWindow::on_LoginBt_clicked()
         m_sec = sec;
     }
 
+    //获取用户账号和密码
+    LoginWindow::User = ui->UserLE->text();
+    LoginWindow::Pass = ui->PassLE->text();
+
     //创建登录服务器命令的Json对象
     QJsonObject obj;
     obj.insert("actioncode",PC_LOGIN_TO_SERVER);
     obj.insert("device_name","KVM_PC_9500");
-    obj.insert("data",ui->UserLE->text()+','+ui->PassLE->text());
+    obj.insert("data",LoginWindow::User+','+LoginWindow::Pass);
     obj.insert("msg_id",(m_min+m_sec+QString("%1").arg(m_num)).toInt());
 
     //序列化Json对象
