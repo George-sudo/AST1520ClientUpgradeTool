@@ -492,124 +492,11 @@ void MainWindow::ReceiveUdpData()
 {
     qDebug()<<"******************Data coming******************";
     myDialog->hide();
+
     //判断数据是否为空
     if(LoginWindow::UdpSocket->pendingDatagramSize()>0)
     {
-        QByteArray data;
-        data.resize(LoginWindow::UdpSocket->pendingDatagramSize());
-        LoginWindow::UdpSocket->readDatagram(data.data(),data.size());
-
-        qDebug()<<data.data();
-        //截取数据流的Json数据
-        QByteArray JsonBA = data.mid(0,data.size()-3);
-        //将QByteArray数据流装换为Json对象
-        QJsonObject obj = QJsonDocument::fromJson(JsonBA).object();
-
-        //计算Json数据的CRC
-        quint16 JsonCrc = crc16_ccitt(JsonBA.data(),JsonBA.size());
-
-        //查看是否有END结束符
-        if((uchar)data.at(data.size()-1) != END)
-        {
-            SendErrorCondition(CCBR,"No end character");
-            return;
-        }
-
-        //获取网络流中的CRC值
-        quint16 crc = (uchar)data.at(data.size()-3)*256 + (uchar)data.at(data.size()-2);
-        //比较crc
-        if(JsonCrc != crc)
-        {
-            SendErrorCondition(CRC_ERROR,"CRC check error");
-            return;
-        }
-
-        //通过msg_id来判断，接收到的数据是否为本次需要的数据
-        if(m_msg_id == obj.value("msg_id").toInt())
-        {
-            TimeoutCount = 0;
-            MyTimer->stop();
-
-            //判断消息是否需要长时间返回数据
-            if(obj.value("result").toInt() == LTP)
-            {
-                myDialog->show();
-                MyTimer->start(6000);
-                return;
-            }
-
-            switch (obj.value("actioncode").toInt()) {
-            //返回登录状态
-            case REPLY_PC_LOGIN_TO_SERVER:
-                if(obj.value("result").toInt() == SUCCEED)
-                {
-                    loginWindow->hide();
-                    on_RefreshListBt_clicked();
-                }
-                if(obj.value("result").toInt() == SVRJT)
-                {
-                    QMessageBox::information(NULL, "提醒", "密码或者用户名错误，请重新登录！");
-                }
-                break;
-            //返回注销登录状态
-            case REPLY_PC_LOGOUT_FROM_SERVER:
-                if(obj.value("result").toInt() == SUCCEED)
-                {
-                    //显示登录窗口
-                    loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
-                    loginWindow->show();
-                }
-                if(obj.value("result").toInt() == SVRJT)
-                {
-                    QMessageBox::information(NULL, "提醒", "密码或者用户名错误，退出失败！");
-                }
-                break;
-            //返回设备列表
-            case REPLAY_DEVICE_LIST:
-                DeviceListDataManage(obj.value("data").toString());
-                break;
-            //响应设备升级
-            case REPLY_PC_UPDATE_DEVICE_LIST:
-                //接下来就是等待服务器返回设备升级的状态
-
-                break;
-            //响应取消设备升级
-            case REPLY_PC_CANCEL_UPDATE_DEVICE_LIST:
-
-                break;
-            //响应固件上传指令
-            case REPLY_PC_FIRMWARE_UPLOAD_START:
-                //开始上传固件
-
-                //上传固件完成之后，发送升级设备命令
-
-                break;
-            //响应指定设备闪烁红灯
-            case REPLY_PC_REDLED_BLINK_TRIGGER:
-                if(obj.value("result").toInt() == SUCCEED)
-                {
-                    QString mac = obj.value("data").toString();
-                    QString message = obj.value("return_message").toString();
-                    //根据返回的信息改变按钮文本
-                    ChangeLedBtStateText(mac, message);
-                }
-                break;
-            //返回设备升级完成状态
-            case UPDATE_COMPLETED:
-
-                break;
-            //返回设备升级状态
-            case PROGRESS_UPDATE:
-
-                break;
-            //错误情况
-            case COMMAND_REFUSE:
-                SendJsonOder(ErrorRetransmission, m_OderData);
-                break;
-            default:
-                break;
-            }
-        }
+        DealWithUdpJsonData();
     }
     else
     {
@@ -629,6 +516,126 @@ void MainWindow::ReceiveUdpData()
         LoginWindow::UdpSocket = new QUdpSocket(this);
         LoginWindow::UdpSocket->bind(50010,QAbstractSocket::DontShareAddress);//绑定本地端口号
         connect(LoginWindow::UdpSocket,&QUdpSocket::readyRead,this,&MainWindow::ReceiveUdpData);
+    }
+}
+
+/***处理服务器返回来的Json数据***/
+void MainWindow::DealWithUdpJsonData()
+{
+    QByteArray data;
+    data.resize(LoginWindow::UdpSocket->pendingDatagramSize());
+    LoginWindow::UdpSocket->readDatagram(data.data(),data.size());
+
+    qDebug()<<data.data();
+    //截取数据流的Json数据
+    QByteArray JsonBA = data.mid(0,data.size()-3);
+    //将QByteArray数据流装换为Json对象
+    QJsonObject obj = QJsonDocument::fromJson(JsonBA).object();
+
+    //计算Json数据的CRC
+    quint16 JsonCrc = crc16_ccitt(JsonBA.data(),JsonBA.size());
+
+    //查看是否有END结束符
+    if((uchar)data.at(data.size()-1) != END)
+    {
+        SendErrorCondition(CCBR,"No end character");
+        return;
+    }
+
+    //获取网络流中的CRC值
+    quint16 crc = (uchar)data.at(data.size()-3)*256 + (uchar)data.at(data.size()-2);
+    //比较crc
+    if(JsonCrc != crc)
+    {
+        SendErrorCondition(CRC_ERROR,"CRC check error");
+        return;
+    }
+
+    //通过msg_id来判断，接收到的数据是否为本次需要的数据
+    if(m_msg_id == obj.value("msg_id").toInt())
+    {
+        TimeoutCount = 0;
+        MyTimer->stop();
+
+        //判断消息是否需要长时间返回数据
+        if(obj.value("result").toInt() == LTP)
+        {
+            myDialog->show();
+            MyTimer->start(6000);
+            return;
+        }
+
+        switch (obj.value("actioncode").toInt()) {
+        //返回登录状态
+        case REPLY_PC_LOGIN_TO_SERVER:
+            if(obj.value("result").toInt() == SUCCEED)
+            {
+                loginWindow->hide();
+                on_RefreshListBt_clicked();
+            }
+            if(obj.value("result").toInt() == SVRJT)
+            {
+                QMessageBox::information(NULL, "提醒", "密码或者用户名错误，请重新登录！");
+            }
+            break;
+        //返回注销登录状态
+        case REPLY_PC_LOGOUT_FROM_SERVER:
+            if(obj.value("result").toInt() == SUCCEED)
+            {
+                //显示登录窗口
+                loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
+                loginWindow->show();
+            }
+            if(obj.value("result").toInt() == SVRJT)
+            {
+                QMessageBox::information(NULL, "提醒", "密码或者用户名错误，退出失败！");
+            }
+            break;
+        //返回设备列表
+        case REPLAY_DEVICE_LIST:
+            DeviceListDataManage(obj.value("data").toString());
+            break;
+        //响应设备升级
+        case REPLY_PC_UPDATE_DEVICE_LIST:
+            //接下来就是等待服务器返回设备升级的状态
+
+            break;
+        //响应取消设备升级
+        case REPLY_PC_CANCEL_UPDATE_DEVICE_LIST:
+
+            break;
+        //响应固件上传指令
+        case REPLY_PC_FIRMWARE_UPLOAD_START:
+            //开始上传固件
+
+            //上传固件完成之后，发送升级设备命令
+
+            break;
+        //响应指定设备闪烁红灯
+        case REPLY_PC_REDLED_BLINK_TRIGGER:
+            if(obj.value("result").toInt() == SUCCEED)
+            {
+                QString mac = obj.value("data").toString();
+                QString message = obj.value("return_message").toString();
+                //根据返回的信息改变按钮文本
+                ChangeLedBtStateText(mac, message);
+            }
+            break;
+        //返回设备升级完成状态
+        case UPDATE_COMPLETED:
+
+            break;
+        //返回设备升级状态
+        case PROGRESS_UPDATE:
+
+            break;
+        //错误情况
+        case COMMAND_REFUSE:
+            SendJsonOder(ErrorRetransmission, m_OderData);
+            break;
+        default:
+            break;
+        }
     }
 }
 

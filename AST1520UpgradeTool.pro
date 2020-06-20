@@ -15,13 +15,13 @@ RC_FILE = logo.rc
 SOURCES += main.cpp\
         mainwindow.cpp \
     loginwindow.cpp \
-    crc.cpp \
-    mydialog.cpp
+    mydialog.cpp \
+    checkout.cpp
 
 HEADERS  += mainwindow.h \
     loginwindow.h \
-    crc.h \
-    mydialog.h
+    mydialog.h \
+    checkout.h
 
 FORMS    += mainwindow.ui \
     loginwindow.ui \

@@ -16,7 +16,7 @@
 #include <vector>
 #include <QTimer>
 #include <QMessageBox>
-#include "crc.h"
+#include "checkout.h"
 #include "mydialog.h"
 
 
@@ -40,6 +40,7 @@ public:
     void SendErrorCondition(int result, QString ErrorMessage);
     void DeviceListDataManage(QString DeviceList);
     void ChangeLedBtStateText(QString DevideMac, QString ReturnMessage);
+    void DealWithUdpJsonData();
 
 public slots:
     void SendDeviceBtSlot();

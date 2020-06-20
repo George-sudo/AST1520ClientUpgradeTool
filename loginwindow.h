@@ -7,7 +7,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTime>
-#include "crc.h"
+#include "checkout.h"
 
 namespace Ui {
 class LoginWindow;

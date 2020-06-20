@@ -1,5 +1,5 @@
-#ifndef CRC_H
-#define CRC_H
+#ifndef CHECKOUT_H
+#define CHECKOUT_H
 #include <iostream>
 #include <QDebug>
 
@@ -40,5 +40,7 @@ static const unsigned short crc16tab[256]= {
 
 //计算CRC16
 quint16 crc16_ccitt(const char *buf, int len);
+uint8_t TX_CheckSum(uint8_t *buf, uint8_t len);
+uint8_t RX_CheckSum(uint8_t *buf, uint8_t len);
 
-#endif // CRC_H
+#endif // CHECKOUT_H
