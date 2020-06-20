@@ -17,6 +17,7 @@
 #include <QTimer>
 #include <QMessageBox>
 #include "crc.h"
+#include "mydialog.h"
 
 
 namespace Ui {
@@ -112,6 +113,7 @@ private:
     int m_msg_id;
     QTimer *MyTimer;
     int TimeoutCount;
+    MyDialog *myDialog;
 
     //发送端
     std::vector<QTableWidgetItem*> SendDeviceName;
