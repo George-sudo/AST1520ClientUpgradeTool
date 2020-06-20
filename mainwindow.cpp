@@ -8,8 +8,9 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     this->setWindowTitle("AST1520设备升级软件");
 
-    //创建连接窗口对象
+    //创建窗口对象
     loginWindow = new LoginWindow();
+    myDialog = new MyDialog();
 
     //初始化变量
     m_msg_id = 0;
@@ -138,7 +139,7 @@ void MainWindow::InsertOneDevice(std::vector<QString> &DeviceInfo)
         SendDeviceBt[row]->setText(QString("点亮设备%1LED").arg(row+1));
         SendDeviceBt[row]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);border-radius: 10px;  border: 2px groove gray;}" // 按键本色
                 "QPushButton:hover{background-color:rgb(255, 158, 0); color: black;}"  // 鼠标停放时的色彩
-                "QPushButton:pressed{background-color:red;}");
+                );//"QPushButton:pressed{background-color:red;}"
         connect(SendDeviceBt[row],&QPushButton::clicked,this,&MainWindow::SendDeviceBtSlot);
         ui->SendTableWidget->setCellWidget(row,3,SendDeviceBt[row]);
 
@@ -197,7 +198,7 @@ void MainWindow::InsertOneDevice(std::vector<QString> &DeviceInfo)
         ReceiveDeviceBt[row]->setText(QString("点亮设备%1LED").arg(row+1));
         ReceiveDeviceBt[row]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);border-radius: 10px;  border: 2px groove gray;}" // 按键本色
                 "QPushButton:hover{background-color:rgb(255, 158, 0); color: black;}"  // 鼠标停放时的色彩
-                "QPushButton:pressed{background-color:red;}");
+                );//"QPushButton:pressed{background-color:red;}"
         connect(ReceiveDeviceBt[row],&QPushButton::clicked,this,&MainWindow::ReceiveDeviceBtSlot);
         ui->ReceiveTableWidget->setCellWidget(row,3,ReceiveDeviceBt[row]);
     }
@@ -350,12 +351,16 @@ void MainWindow::ChangeLedBtStateText(QString DevideMac, QString ReturnMessage)
         if(ReturnMessage.contains("start",Qt::CaseInsensitive))
         {
             ReceiveDeviceBt[index]->setText("关闭设备"+str);
-            ReceiveDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(85, 170, 255);}");
+            ReceiveDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(85, 170, 255);border-radius: 10px; border: 2px groove gray;}" // 按键本色
+                                                  "QPushButton:hover{background-color:rgb(255, 158, 0); color: black;}"  // 鼠标停放时的色彩
+                                                  );
         }
         if(ReturnMessage.contains("stop",Qt::CaseInsensitive))
         {
             ReceiveDeviceBt[index]->setText("点亮设备"+str);
-            ReceiveDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);}");
+            ReceiveDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);border-radius: 10px; border: 2px groove gray;}" // 按键本色
+                                                  "QPushButton:hover{background-color:rgb(255, 158, 0); color: black;}"  // 鼠标停放时的色彩
+                                                  );
         }
     }
     else
@@ -365,12 +370,16 @@ void MainWindow::ChangeLedBtStateText(QString DevideMac, QString ReturnMessage)
         if(ReturnMessage.contains("start",Qt::CaseInsensitive))
         {
             SendDeviceBt[index]->setText("关闭设备"+str);
-            SendDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(85, 170, 255);}");
+            SendDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(0, 213, 53);border-radius: 10px; border: 2px groove gray;}" // 按键本色
+                                               "QPushButton:hover{background-color:rgb(255, 158, 0); color: black;}"  // 鼠标停放时的色彩
+                                               );
         }
         if(ReturnMessage.contains("stop",Qt::CaseInsensitive))
         {
             SendDeviceBt[index]->setText("点亮设备"+str);
-            SendDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);}");
+            SendDeviceBt[index]->setStyleSheet("QPushButton{background-color:rgb(192, 192, 192);border-radius: 10px; border: 2px groove gray;}" // 按键本色
+                                               "QPushButton:hover{background-color:rgb(255, 158, 0); color: black;}"  // 鼠标停放时的色彩
+                                               );
         }
     }
 }
@@ -481,7 +490,8 @@ void MainWindow::on_ReceiveCheckBox_clicked()
 /***接收socket数据***/
 void MainWindow::ReceiveUdpData()
 {
-    qDebug()<<"******数据到来******";
+    qDebug()<<"******************Data coming******************";
+    myDialog->hide();
     //判断数据是否为空
     if(LoginWindow::UdpSocket->pendingDatagramSize()>0)
     {
@@ -520,9 +530,11 @@ void MainWindow::ReceiveUdpData()
             TimeoutCount = 0;
             MyTimer->stop();
 
-            //判断消息是否需要长时间返回宿舍
+            //判断消息是否需要长时间返回数据
             if(obj.value("result").toInt() == LTP)
             {
+                myDialog->show();
+                MyTimer->start(6000);
                 return;
             }
 
@@ -635,7 +647,7 @@ void MainWindow::SendJsonOder(int SendState,QByteArray OderData)
 
         //发送数据
         LoginWindow::UdpSocket->writeDatagram(m_OderData.data(),m_OderData.size(),LoginWindow::ServerAddress,LoginWindow::ServerPort);
-
+        qDebug()<<"send size:"<<m_OderData.size();
         //启动定时器
         MyTimer->start(3000);
     }
@@ -644,7 +656,7 @@ void MainWindow::SendJsonOder(int SendState,QByteArray OderData)
     if(SendState == TimeoutRetransmission)
     {
         LoginWindow::UdpSocket->writeDatagram(m_OderData.data(),m_OderData.size(),LoginWindow::ServerAddress,LoginWindow::ServerPort);
-
+        qDebug()<<"retransmission send size:"<<m_OderData.size();
         //启动定时器
         MyTimer->start(3000);
     }
@@ -691,7 +703,7 @@ void MainWindow::SendJsonOder(int SendState,QByteArray OderData)
 
         //重发
         LoginWindow::UdpSocket->writeDatagram(m_OderData.data(),m_OderData.size(),LoginWindow::ServerAddress,LoginWindow::ServerPort);
-
+        qDebug()<<"error retransmission send size:"<<m_OderData.size();
         //启动定时器
         MyTimer->start(3000);
     }
@@ -715,7 +727,7 @@ void MainWindow::TimeoutFun()
     }
     else
     {
-        qDebug("重发");
+        qDebug("超时重发");
         //超时重发信息
        SendJsonOder(TimeoutRetransmission, m_OderData);
     }

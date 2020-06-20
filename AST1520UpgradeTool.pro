@@ -15,11 +15,19 @@ RC_FILE = logo.rc
 SOURCES += main.cpp\
         mainwindow.cpp \
     loginwindow.cpp \
-    crc.cpp
+    crc.cpp \
+    mydialog.cpp
 
 HEADERS  += mainwindow.h \
     loginwindow.h \
-    crc.h
+    crc.h \
+    mydialog.h
 
 FORMS    += mainwindow.ui \
-    loginwindow.ui
+    loginwindow.ui \
+    mydialog.ui
+
+RESOURCES += \
+    image.qrc
+
+DISTFILES +=
