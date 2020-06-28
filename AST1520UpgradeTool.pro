@@ -16,12 +16,22 @@ SOURCES += main.cpp\
         mainwindow.cpp \
     loginwindow.cpp \
     mydialog.cpp \
-    checkout.cpp
+    checkout.cpp \
+    unzip_ufw.cpp
 
 HEADERS  += mainwindow.h \
     loginwindow.h \
     mydialog.h \
-    checkout.h
+    checkout.h \
+    unzip_ufw.h
+
+INCLUDEPATH += $$PWD/include
+
+CONFIG(debug, debug|release) {
+    LIBS += -L$$PWD/lib -lquazipd
+} else {
+    LIBS += -L$$PWD/lib -lquazip
+}
 
 FORMS    += mainwindow.ui \
     loginwindow.ui \

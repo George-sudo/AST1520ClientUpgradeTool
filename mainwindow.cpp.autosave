@@ -739,8 +739,11 @@ void MainWindow::DealWithUdpJsonData()
             break;
         //响应设备升级
         case REPLY_PC_UPDATE_DEVICE_LIST:
-            //接下来就是等待服务器返回设备升级的状态
-
+            //更新界面
+            if(obj.value("result").toInt() == SUCCEED)
+            {
+                
+            }
             break;
         //响应取消设备升级
         case REPLY_PC_CANCEL_UPDATE_DEVICE_LIST:

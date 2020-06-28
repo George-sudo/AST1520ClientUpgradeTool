@@ -18,7 +18,11 @@
 #include <QMessageBox>
 #include "checkout.h"
 #include "mydialog.h"
-
+#include <QFile>
+#include <QFileDialog>
+#include <QDir>
+#include <QProgressDialog>
+#include "unzip_ufw.h"
 
 namespace Ui {
 class MainWindow;
@@ -36,11 +40,16 @@ public:
     void InitView();
     void InitLoginView();
     void InsertOneDevice(std::vector<QString> &eviceInfo);
-    QByteArray DataPackages(int actioncode, QString device_name, QString data);
+    QByteArray JsonDataPackages(int actioncode, QString device_name, QString data);
+    QByteArray FileDataPackages(QByteArray FileAllData, uchar opcode);
     void SendErrorCondition(int result, QString ErrorMessage);
     void DeviceListDataManage(QString DeviceList);
     void ChangeLedBtStateText(QString DevideMac, QString ReturnMessage);
     void DealWithUdpJsonData();
+    void DealWithUdpFileData();
+    QString FindBinPath(QString FirmwareTpye);
+    void FileTransferOperation(uchar operation);
+    void SendUpgradeOrder();
 
 public slots:
     void SendDeviceBtSlot();
@@ -48,6 +57,7 @@ public slots:
     void STableCheckBoxChanged(int row, int col);
     void RTableCheckBoxChanged(int row, int col);
     void ReceiveUdpData();
+    void CancelSend();
 
 private slots:
     void on_SendCheckBox_clicked();
@@ -102,9 +112,25 @@ private:
     };
     //发送状态
     enum{
-        NormalToSend,
-        TimeoutRetransmission,
-        ErrorRetransmission
+        NormalToSend = 0x11,
+        TimeoutRetransmission = 0x22,
+        ErrorRetransmission = 0x33
+    };
+    //文件传输操作码
+    enum{
+        SATAR_FILE_SEND = 0x01,
+        REPLY_SATAR_FILE_SEND = 0x10,
+        WRITE_DATA = 0x02,
+        REPLY_WRITE_DATA_FINISH = 0x20,
+        DATA_VERIFICATION_FAILURE = 0x2f,
+        FILE_SEND_FINISH = 0x04,
+        REPLY_FILE_SEND_FINISH = 0x40,
+        CANCEL_FILE_SEND = 0x05,
+        REPLY_CANCEL_FILE_SEND = 0x50
+    };
+    enum{
+        //数据包大小
+        PKTSIZE = 512
     };
 
 private:
@@ -115,6 +141,22 @@ private:
     QTimer *MyTimer;
     int TimeoutCount;
     MyDialog *myDialog;
+    static int flags;
+    QProgressDialog *ProgressDialog;
+    QString m_BinFileDirPath;
+    QString m_BinFilePath;
+    QStringList m_FileList;
+    std::vector<QString> m_ReadySendFile;
+    QByteArray m_OneFileData;
+    QByteArray m_FileTemData;
+    uint m_FileNum;
+    uint m_BlockNum;
+    uint m_TotalBlockNum;
+    uint m_ActualSendFileSize;
+    uint m_OneFileSentSize;
+    uint m_OneFileSize;
+    uint m_AllFileSentSize;
+    uint m_AllFileSize;
 
     //发送端
     std::vector<QTableWidgetItem*> SendDeviceName;

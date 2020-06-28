@@ -40,7 +40,7 @@ static const unsigned short crc16tab[256]= {
 
 //计算CRC16
 quint16 crc16_ccitt(const char *buf, int len);
-uint8_t TX_CheckSum(uint8_t *buf, uint8_t len);
-uint8_t RX_CheckSum(uint8_t *buf, uint8_t len);
+uint8_t TX_CheckSum(uint8_t *buf, uint16_t len);
+uint8_t RX_CheckSum(uint8_t *buf, uint16_t len);
 
 #endif // CHECKOUT_H

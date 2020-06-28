@@ -46,11 +46,10 @@ public:
     enum{
         END = 0xff
     };
-    //发送状态
     enum{
-        NormalToSend,
-        TimeoutRetransmission,
-        ErrorRetransmission
+        NormalToSend = 0x11,
+        TimeoutRetransmission = 0x22,
+        ErrorRetransmission = 0x33
     };
 
 signals:
