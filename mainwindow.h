@@ -47,9 +47,11 @@ public:
     void ChangeLedBtStateText(QString DevideMac, QString ReturnMessage);
     void DealWithUdpJsonData();
     void DealWithUdpFileData();
+    void DealWithDeviceStatus();
     QString FindBinPath(QString FirmwareTpye);
     void FileTransferOperation(uchar operation);
     void SendUpgradeOrder();
+    void UpdateUpdateStatusUi(QString data);
 
 public slots:
     void SendDeviceBtSlot();
@@ -88,7 +90,8 @@ private:
         PC_UPDATE_DEVICE_LIST,
         PC_CANCEL_UPDATE_DEVICE_LIST,
         PC_FIRMWARE_UPLOAD_START,
-        PC_REDLED_BLINK_TRIGGER
+        PC_REDLED_BLINK_TRIGGER,
+        REPLY_UPDATE_PROGRESS
     };
     //Server->PC
     enum{
@@ -157,6 +160,9 @@ private:
     uint m_OneFileSize;
     uint m_AllFileSentSize;
     uint m_AllFileSize;
+    uint m_UpdateDeviceCount;
+    uint m_CheckDeviceFlag;
+    QString m_UpdatingDivece;
 
     //发送端
     std::vector<QTableWidgetItem*> SendDeviceName;
@@ -165,6 +171,7 @@ private:
     std::vector<QProgressBar*> SendDeviceBar;
     std::vector<QPushButton*> SendDeviceBt;
     std::vector<QString> SendDeviceMAC;
+    std::vector<int> UpdatingSendDevice;
 
     //接收端
     std::vector<QTableWidgetItem*> ReceiveDeviceName;
@@ -173,6 +180,7 @@ private:
     std::vector<QProgressBar*> ReceiveDeviceBar;
     std::vector<QPushButton*> ReceiveDeviceBt;
     std::vector<QString> ReceiveDeviceMAC;
+    std::vector<int> UpdatingReceiveDevice;
 };
 
 #endif // MAINWINDOW_H

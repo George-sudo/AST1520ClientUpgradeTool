@@ -29,6 +29,7 @@ MainWindow::MainWindow(QWidget *parent) :
     m_BlockNum = 1;
     m_AllFileSentSize = 0;
     m_AllFileSize = 0;
+    m_CheckDeviceFlag = 0;
 
     //创建定时器
     MyTimer = new QTimer();
@@ -633,6 +634,13 @@ void MainWindow::ReceiveUdpData()
             DealWithUdpFileData();
             return;
         }
+        //处理服务器自发起的数据（设备升级状态）
+        if(flags == 2)
+        {
+            DealWithDeviceStatus();
+            return;
+        }
+
     }
     else
     {
@@ -739,8 +747,15 @@ void MainWindow::DealWithUdpJsonData()
             break;
         //响应设备升级
         case REPLY_PC_UPDATE_DEVICE_LIST:
-            //接下来就是等待服务器返回设备升级的状态
-
+            if(obj.value("result").toInt() == SUCCEED)
+            {
+                //记录和显示即将升级的设备的进度条和升级状态
+                UpdateUpdateStatusUi(obj.value("data").toString());
+                //保存需要升级的设备数量
+                m_UpdateDeviceCount = UpdatingSendDevice.size()+UpdatingReceiveDevice.size();
+                myDialog->hide();
+                flags = 2;//使udp接收函数跳到处理服务器发起的数据（也就是msg_id是服务器产生的）
+            }
             break;
         //响应取消设备升级
         case REPLY_PC_CANCEL_UPDATE_DEVICE_LIST:
@@ -763,14 +778,6 @@ void MainWindow::DealWithUdpJsonData()
                 //根据返回的信息改变按钮文本
                 ChangeLedBtStateText(mac, message);
             }
-            break;
-        //返回设备升级完成状态
-        case UPDATE_COMPLETED:
-
-            break;
-        //返回设备升级状态
-        case PROGRESS_UPDATE:
-
             break;
         //错误情况
         case COMMAND_REFUSE:
@@ -854,6 +861,124 @@ void MainWindow::DealWithUdpFileData()
         //继续发送下一个固件
         FileTransferOperation(SATAR_FILE_SEND);
     }
+}
+
+void MainWindow::DealWithDeviceStatus()
+{
+    QByteArray data;
+    data.resize(LoginWindow::UdpSocket->pendingDatagramSize());
+    LoginWindow::UdpSocket->readDatagram(data.data(),data.size());
+
+    qDebug()<<data.data();
+    //截取数据流的Json数据
+    QByteArray JsonBA = data.mid(0,data.size()-3);
+    //将QByteArray数据流装换为Json对象
+    QJsonObject obj = QJsonDocument::fromJson(JsonBA).object();
+    m_msg_id = obj.value("msg_id").toInt();
+
+    //计算Json数据的CRC
+    quint16 JsonCrc = crc16_ccitt(JsonBA.data(),JsonBA.size());
+
+    //查看是否有END结束符
+    if((uchar)data.at(data.size()-1) != END)
+    {
+        SendErrorCondition(CCBR,"No end character");
+        return;
+    }
+
+    //获取网络流中的CRC值
+    quint16 crc = (uchar)data.at(data.size()-3)*256 + (uchar)data.at(data.size()-2);
+    //比较crc
+    if(JsonCrc != crc)
+    {
+        SendErrorCondition(CRC_ERROR,"CRC check error");
+        return;
+    }
+
+    //返回设备的升级状态
+    if(obj.value("actioncode").toInt() == PROGRESS_UPDATE)
+    {
+        QString str = obj.value("data").toString();
+        QStringList strlist = str.split(",");
+        QString mac = strlist[0];
+        QString progress = strlist[1];
+        //查找正在升级的设备
+        if(m_CheckDeviceFlag == 0)
+        {
+            std::vector<QString>::iterator SIter = std::find(SendDeviceMAC.begin(),SendDeviceMAC.end(),mac);
+            if(SIter == SendDeviceMAC.end())
+            {
+                std::vector<QString>::iterator RIter = std::find(ReceiveDeviceMAC.begin(),ReceiveDeviceMAC.end(),str.mid(1,str.size()-1));
+                int index = std::distance(ReceiveDeviceMAC.begin(),RIter);
+                m_UpdatingDivece = "R"+QString("%1").arg(index);
+            }
+            else
+            {
+                int index = std::distance(SendDeviceMAC.begin(),SIter);
+                m_UpdatingDivece = "T,"+QString("%1").arg(index);
+            }
+            m_CheckDeviceFlag = 1;
+        }
+
+        QStringList list = m_UpdatingDivece.split(",");
+        if(list[0] == "T")
+        {
+            QString strIndex = list[1];
+            SendDeviceBar[strIndex.toInt()]->setValue(progress.toInt());
+        }
+        else
+            if(list[0] == "R")
+            {
+                QString strIndex = list[1];
+                ReceiveDeviceBar[strIndex.toInt()]->setValue(progress.toInt());
+            }
+    }
+    else
+    {
+        //返回设备的升级完成状态
+        if(obj.value("actioncode").toInt() == UPDATE_COMPLETED)
+        {
+            QStringList list = m_UpdatingDivece.split(",");
+            if(list[0] == "T")
+            {
+                QString strIndex = list[1];
+                SendDeviceLabel[strIndex.toInt()]->setText("升级完成");
+                SendDeviceLabel[strIndex.toInt()]->setStyleSheet("color: rgb(85, 170, 255);");
+                SendDeviceBar[strIndex.toInt()]->setStyleSheet("color: rgb(85, 170, 255);");
+            }
+            else
+                if(list[0] == "R")
+                {
+                    QString strIndex = list[1];
+                    ReceiveDeviceLabel[strIndex.toInt()]->setText("升级完成");
+                    ReceiveDeviceLabel[strIndex.toInt()]->setStyleSheet("color: rgb(85, 170, 255);");
+                    ReceiveDeviceBar[strIndex.toInt()]->setStyleSheet("color: rgb(85, 170, 255);");
+                }
+
+            m_CheckDeviceFlag = 0;
+            if(m_UpdateDeviceCount <= 0)
+            {
+                qDebug()<<"所有设备升级完成";
+                myDialog->setText("请等待所有设备重启后，即可完成设备升级...");
+                myDialog->show();
+            }
+            else
+                --m_UpdateDeviceCount;
+        }
+    }
+
+    //响应服务器发送设备升级状态
+    obj["actioncode"] = REPLY_UPDATE_PROGRESS;
+    QJsonDocument jsonDoc(obj);
+    QByteArray ba_tem = jsonDoc.toJson();
+    //生成CRC16
+    quint16 crc_tem = crc16_ccitt(ba_tem.data(),ba_tem.size());
+    ba_tem.append(crc_tem>>8);
+    ba_tem.append(crc_tem&0x00ff);
+    //添加结束符
+    ba_tem.append(END);
+    flags = 2;
+    LoginWindow::UdpSocket->writeDatagram(ba_tem.data(),ba_tem.size(),LoginWindow::ServerAddress,LoginWindow::ServerPort);
 }
 
 /***发送Json数据+CRC16+0xFF***/
@@ -1017,9 +1142,9 @@ void MainWindow::SendUpgradeOrder()
         if(SendDeviceName[i]->checkState() == Qt::Checked)
         {
             if(Macs.size() > 0)
-                Macs += (","+SendDeviceMAC[i]);
+                Macs += (",T"+SendDeviceMAC[i]);
             else
-                Macs = SendDeviceMAC[i];
+                Macs = "T"+SendDeviceMAC[i];
         }
     }
     for(uint i=0; i<ReceiveDeviceName.size(); ++i)
@@ -1027,14 +1152,86 @@ void MainWindow::SendUpgradeOrder()
         if(ReceiveDeviceName[i]->checkState() == Qt::Checked)
         {
             if(Macs.size() > 0)
-                Macs += (","+ReceiveDeviceMAC[i]);
+                Macs += (",R"+ReceiveDeviceMAC[i]);
             else
-                Macs = ReceiveDeviceMAC[i];
+                Macs = "R"+ReceiveDeviceMAC[i];
         }
     }
-
     QByteArray ba = JsonDataPackages(PC_UPDATE_DEVICE_LIST,"KVM_PC_9500", Macs);
     SendJsonOder(NormalToSend,ba);
+}
+
+void MainWindow::UpdateUpdateStatusUi(QString data)
+{
+    QString str;
+    QStringList strlist = data.split(",");
+    UpdatingSendDevice.resize(0);
+    UpdatingReceiveDevice.resize(0);
+    for(int i=0; i<str.size(); ++i)
+    {
+        str = strlist[i];
+        std::vector<QString>::iterator SIter = std::find(SendDeviceMAC.begin(),SendDeviceMAC.end(),str.mid(1,str.size()-1));
+        if(SIter == SendDeviceMAC.end())
+        {
+            std::vector<QString>::iterator RIter = std::find(ReceiveDeviceMAC.begin(),ReceiveDeviceMAC.end(),str.mid(1,str.size()-1));
+            int index = std::distance(ReceiveDeviceMAC.begin(),RIter);
+            if(str.at(0) == 'Y')
+            {
+                UpdatingReceiveDevice.push_back(index);
+                ReceiveDeviceLabel[index]->setText("正在升级");
+                ReceiveDeviceLabel[index]->setStyleSheet("color: rgb(0, 230, 0);");
+                ReceiveDeviceLabel[index]->show();
+
+                QString FilePath = FindBinPath("KPR");
+                QFile file(FilePath);
+                ReceiveDeviceBar[index]->setRange(0,file.size());
+                ReceiveDeviceBar[index]->setValue(0);//设置进度条值
+                ReceiveDeviceBar[index]->setStyleSheet("color: rgb(0, 230, 0);");
+                ReceiveDeviceBar[index]->show();
+            }
+            else
+            {
+                ReceiveDeviceLabel[index]->setText("已经升级");
+                ReceiveDeviceLabel[index]->setStyleSheet("color: rgb(85, 170, 255);");
+                ReceiveDeviceLabel[index]->show();
+
+                ReceiveDeviceBar[index]->setRange(0,100);
+                ReceiveDeviceBar[index]->setValue(100);//设置进度条值
+                ReceiveDeviceBar[index]->setStyleSheet("color: rgb(85, 170, 255);");
+                ReceiveDeviceBar[index]->show();
+            }
+        }
+        else
+        {
+            int index = std::distance(SendDeviceMAC.begin(),SIter);
+
+            if(str.at(0) == 'Y')
+            {
+                UpdatingSendDevice.push_back(index);
+                SendDeviceLabel[index]->setText("正在升级");
+                SendDeviceLabel[index]->setStyleSheet("color: rgb(0, 230, 0);");
+                SendDeviceLabel[index]->show();
+
+                QString FilePath = FindBinPath("KPT");
+                QFile file(FilePath);
+                SendDeviceBar[index]->setRange(0,file.size());
+                SendDeviceBar[index]->setValue(0);//设置进度条值
+                SendDeviceBar[index]->setStyleSheet("color: rgb(0, 230, 0);");
+                SendDeviceBar[index]->show();
+            }
+            else
+            {
+                SendDeviceLabel[index]->setText("已经升级");
+                SendDeviceLabel[index]->setStyleSheet("color: rgb(85, 170, 255);");
+                SendDeviceLabel[index]->show();
+
+                SendDeviceBar[index]->setRange(0,100);
+                SendDeviceBar[index]->setValue(100);//设置进度条值
+                SendDeviceBar[index]->setStyleSheet("color: rgb(85, 170, 255);");
+                SendDeviceBar[index]->show();
+            }
+        }
+    }
 }
 
 
@@ -1180,7 +1377,7 @@ void MainWindow::on_StartUpgradeBt_clicked()
     if(data.size()>0)
     {
         //保存需要发送所有固件的大小和
-        for(int i=0; i<m_ReadySendFile.size(); ++i)
+        for(uint i=0; i<m_ReadySendFile.size(); ++i)
         {
             QFile file(m_ReadySendFile[i]);
             m_AllFileSize += file.size();
