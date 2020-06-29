@@ -869,7 +869,7 @@ void MainWindow::DealWithDeviceStatus()
     data.resize(LoginWindow::UdpSocket->pendingDatagramSize());
     LoginWindow::UdpSocket->readDatagram(data.data(),data.size());
 
-    qDebug()<<data.data();
+    qDebug()<<"DealWithDeviceStatus"<<data.data();
     //截取数据流的Json数据
     QByteArray JsonBA = data.mid(0,data.size()-3);
     //将QByteArray数据流装换为Json对象
@@ -1167,7 +1167,7 @@ void MainWindow::UpdateUpdateStatusUi(QString data)
     QStringList strlist = data.split(",");
     UpdatingSendDevice.resize(0);
     UpdatingReceiveDevice.resize(0);
-    for(int i=0; i<str.size(); ++i)
+    for(int i=0; i<strlist.size(); ++i)
     {
         str = strlist[i];
         std::vector<QString>::iterator SIter = std::find(SendDeviceMAC.begin(),SendDeviceMAC.end(),str.mid(1,str.size()-1));
@@ -1186,18 +1186,26 @@ void MainWindow::UpdateUpdateStatusUi(QString data)
                 QFile file(FilePath);
                 ReceiveDeviceBar[index]->setRange(0,file.size());
                 ReceiveDeviceBar[index]->setValue(0);//设置进度条值
-                ReceiveDeviceBar[index]->setStyleSheet("color: rgb(0, 230, 0);");
+                ReceiveDeviceBar[index]->setStyleSheet("QProgressBar {border: 2px solid grey;border-radius: 5px;"
+                                                       "background-color: #FFFFFF;"
+                                                       "text-align: center;}"
+                                                       "QProgressBar::chunk {background-color: rgb(0, 230, 0);}"
+                                                       );
                 ReceiveDeviceBar[index]->show();
             }
             else
             {
-                ReceiveDeviceLabel[index]->setText("已经升级");
+                ReceiveDeviceLabel[index]->setText("已是最新版本");
                 ReceiveDeviceLabel[index]->setStyleSheet("color: rgb(85, 170, 255);");
                 ReceiveDeviceLabel[index]->show();
 
                 ReceiveDeviceBar[index]->setRange(0,100);
                 ReceiveDeviceBar[index]->setValue(100);//设置进度条值
-                ReceiveDeviceBar[index]->setStyleSheet("color: rgb(85, 170, 255);");
+                ReceiveDeviceBar[index]->setStyleSheet("QProgressBar {border: 2px solid grey;border-radius: 5px;"
+                                                       "background-color: #FFFFFF;"
+                                                       "text-align: center;}"
+                                                       "QProgressBar::chunk {background-color: rgb(85, 170, 255);}"
+                                                       );
                 ReceiveDeviceBar[index]->show();
             }
         }
@@ -1216,18 +1224,26 @@ void MainWindow::UpdateUpdateStatusUi(QString data)
                 QFile file(FilePath);
                 SendDeviceBar[index]->setRange(0,file.size());
                 SendDeviceBar[index]->setValue(0);//设置进度条值
-                SendDeviceBar[index]->setStyleSheet("color: rgb(0, 230, 0);");
+                SendDeviceBar[index]->setStyleSheet("QProgressBar {border: 2px solid grey;border-radius: 5px;"
+                                                    "background-color: #FFFFFF;"
+                                                    "text-align: center;}"
+                                                    "QProgressBar::chunk {background-color: rgb(0, 230, 0);}"
+                                                    );
                 SendDeviceBar[index]->show();
             }
             else
             {
-                SendDeviceLabel[index]->setText("已经升级");
+                SendDeviceLabel[index]->setText("已是最新版本");
                 SendDeviceLabel[index]->setStyleSheet("color: rgb(85, 170, 255);");
                 SendDeviceLabel[index]->show();
 
                 SendDeviceBar[index]->setRange(0,100);
                 SendDeviceBar[index]->setValue(100);//设置进度条值
-                SendDeviceBar[index]->setStyleSheet("color: rgb(85, 170, 255);");
+                SendDeviceBar[index]->setStyleSheet("QProgressBar {border: 2px solid grey;border-radius: 5px;"
+                                                    "background-color: #FFFFFF;"
+                                                    "text-align: center;}"
+                                                    "QProgressBar::chunk {background-color: rgb(85, 170, 255);}"
+                                                    );
                 SendDeviceBar[index]->show();
             }
         }
