@@ -902,7 +902,7 @@ void MainWindow::DealWithDeviceStatus()
         QStringList strlist = str.split(",");
         QString mac = strlist[0];
         QString progress = strlist[1];
-        //查找正在升级的设备
+        //查找匹配正在升级的设备
         if(m_CheckDeviceFlag == 0)
         {
             std::vector<QString>::iterator SIter = std::find(SendDeviceMAC.begin(),SendDeviceMAC.end(),mac);
@@ -938,6 +938,8 @@ void MainWindow::DealWithDeviceStatus()
         //返回设备的升级完成状态
         if(obj.value("actioncode").toInt() == UPDATE_COMPLETED)
         {
+            --m_UpdateDeviceCount;
+
             QStringList list = m_UpdatingDivece.split(",");
             if(list[0] == "T")
             {
@@ -952,6 +954,7 @@ void MainWindow::DealWithDeviceStatus()
 
             }
             else
+            {
                 if(list[0] == "R")
                 {
                     QString strIndex = list[1];
@@ -963,6 +966,7 @@ void MainWindow::DealWithDeviceStatus()
                                                                       "QProgressBar::chunk {background-color: rgb(85, 170, 255);}"
                                                                       );
                 }
+            }
 
             m_CheckDeviceFlag = 0;
             if(m_UpdateDeviceCount <= 0)
@@ -973,8 +977,6 @@ void MainWindow::DealWithDeviceStatus()
                 myDialog->setText("请等待所有设备重启后，即可完成设备升级...");
                 myDialog->show();
             }
-            else
-                --m_UpdateDeviceCount;
         }
     }
 
