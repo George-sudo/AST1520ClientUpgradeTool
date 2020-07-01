@@ -908,9 +908,9 @@ void MainWindow::DealWithDeviceStatus()
             std::vector<QString>::iterator SIter = std::find(SendDeviceMAC.begin(),SendDeviceMAC.end(),mac);
             if(SIter == SendDeviceMAC.end())
             {
-                std::vector<QString>::iterator RIter = std::find(ReceiveDeviceMAC.begin(),ReceiveDeviceMAC.end(),str.mid(1,str.size()-1));
+                std::vector<QString>::iterator RIter = std::find(ReceiveDeviceMAC.begin(),ReceiveDeviceMAC.end(),mac);
                 int index = std::distance(ReceiveDeviceMAC.begin(),RIter);
-                m_UpdatingDivece = "R"+QString("%1").arg(index);
+                m_UpdatingDivece = "R,"+QString("%1").arg(index);
             }
             else
             {
@@ -1171,6 +1171,7 @@ void MainWindow::SendUpgradeOrder()
         }
     }
     QByteArray ba = JsonDataPackages(PC_UPDATE_DEVICE_LIST,"KVM_PC_9500", Macs);
+    qDebug()<<"jhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh:"<<ba.data();
     SendJsonOder(NormalToSend,ba);
 }
 
@@ -1419,6 +1420,18 @@ void MainWindow::on_StartUpgradeBt_clicked()
         //让升级按钮失效，避免在升级过程中，再次点击
         ui->StartUpgradeBt->setDisabled(true);
         ui->RefreshListBt->setDisabled(true);
+
+        //清空升级状态界面
+        for(uint i=0; i<SendDeviceLabel.size(); ++i)
+        {
+            SendDeviceLabel[i]->hide();
+            SendDeviceBar[i]->hide();
+        }
+        for(uint i=0; i<ReceiveDeviceLabel.size(); ++i)
+        {
+            ReceiveDeviceLabel[i]->hide();
+            ReceiveDeviceBar[i]->hide();
+        }
     }
     else
         QMessageBox::information(NULL,"提醒","请选择升级需要的固件和需要升级的设备!");
