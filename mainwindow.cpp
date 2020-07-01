@@ -944,7 +944,12 @@ void MainWindow::DealWithDeviceStatus()
                 QString strIndex = list[1];
                 SendDeviceLabel[strIndex.toInt()]->setText("升级完成");
                 SendDeviceLabel[strIndex.toInt()]->setStyleSheet("color: rgb(85, 170, 255);");
-                SendDeviceBar[strIndex.toInt()]->setStyleSheet("color: rgb(85, 170, 255);");
+                SendDeviceBar[strIndex.toInt()]->setStyleSheet("QProgressBar {border: 2px solid grey;border-radius: 5px;"
+                                                               "background-color: #FFFFFF;"
+                                                               "text-align: center;}"
+                                                               "QProgressBar::chunk {background-color: rgb(85, 170, 255);}"
+                                                               );
+
             }
             else
                 if(list[0] == "R")
@@ -952,7 +957,11 @@ void MainWindow::DealWithDeviceStatus()
                     QString strIndex = list[1];
                     ReceiveDeviceLabel[strIndex.toInt()]->setText("升级完成");
                     ReceiveDeviceLabel[strIndex.toInt()]->setStyleSheet("color: rgb(85, 170, 255);");
-                    ReceiveDeviceBar[strIndex.toInt()]->setStyleSheet("color: rgb(85, 170, 255);");
+                    ReceiveDeviceBar[strIndex.toInt()]->setStyleSheet("QProgressBar {border: 2px solid grey;border-radius: 5px;"
+                                                                      "background-color: #FFFFFF;"
+                                                                      "text-align: center;}"
+                                                                      "QProgressBar::chunk {background-color: rgb(85, 170, 255);}"
+                                                                      );
                 }
 
             m_CheckDeviceFlag = 0;
