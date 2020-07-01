@@ -959,6 +959,8 @@ void MainWindow::DealWithDeviceStatus()
             if(m_UpdateDeviceCount <= 0)
             {
                 qDebug()<<"所有设备升级完成";
+                ui->StartUpgradeBt->setDisabled(false);
+                ui->RefreshListBt->setDisabled(false);
                 myDialog->setText("请等待所有设备重启后，即可完成设备升级...");
                 myDialog->show();
             }
@@ -1402,6 +1404,10 @@ void MainWindow::on_StartUpgradeBt_clicked()
         ProgressDialog->setValue(0);
         QByteArray ba = JsonDataPackages(PC_FIRMWARE_UPLOAD_START,"KVM_PC_9500",data);
         SendJsonOder(NormalToSend,ba);
+
+        //让升级按钮失效，避免在升级过程中，再次点击
+        ui->StartUpgradeBt->setDisabled(true);
+        ui->RefreshListBt->setDisabled(true);
     }
     else
         QMessageBox::information(NULL,"提醒","请选择升级需要的固件和需要升级的设备!");
@@ -1412,4 +1418,6 @@ void MainWindow::on_RefreshListBt_clicked()
 {
     QByteArray ba = JsonDataPackages(PC_GET_DEVICE_LIST,"KVM_PC_9500", "");
     SendJsonOder(NormalToSend,ba);
+    ui->StartUpgradeBt->setDisabled(false);
+    ui->RefreshListBt->setDisabled(false);
 }
