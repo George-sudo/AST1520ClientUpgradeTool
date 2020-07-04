@@ -722,6 +722,8 @@ void MainWindow::DealWithUdpJsonData()
             {
                 loginWindow->hide();
                 on_RefreshListBt_clicked();
+                if(!ProgressDialog->isHidden())
+                    ProgressDialog->cancel();
             }
             if(obj.value("result").toInt() == SVRJT)
             {
@@ -755,6 +757,7 @@ void MainWindow::DealWithUdpJsonData()
                 m_UpdateDeviceCount = UpdatingSendDevice.size()+UpdatingReceiveDevice.size();
                 myDialog->hide();
                 flags = 2;//使udp接收函数跳到处理服务器发起的数据（也就是msg_id是服务器产生的）
+                MyTimer->start(6000);
             }
             break;
         //响应取消设备升级
@@ -992,6 +995,7 @@ void MainWindow::DealWithDeviceStatus()
     ba_tem.append(END);
     flags = 2;
     LoginWindow::UdpSocket->writeDatagram(ba_tem.data(),ba_tem.size(),LoginWindow::ServerAddress,LoginWindow::ServerPort);
+    MyTimer->start(6000);
 }
 
 /***发送Json数据+CRC16+0xFF***/
@@ -1272,14 +1276,7 @@ void MainWindow::TimeoutFun()
     if(TimeoutCount == 2)
     {
         TimeoutCount = 0;
-        MyTimer->stop();
-
-        //服务器异常的提醒
-        QMessageBox::information(NULL, "提醒", "服务器异常，请重新登录！");
-
-        //显示登录窗口
-        loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
-        loginWindow->show();
+        MyTimer->stop(); 
 
         //如果是文件传送过程超时，将数据以下数据归零
         if(flags == 1)
@@ -1290,6 +1287,39 @@ void MainWindow::TimeoutFun()
             m_AllFileSentSize = 0;
             m_AllFileSize = 0;
         }
+
+        //服务器返回设备升级状态超时,界面显示升级失败
+        if(flags == 2)
+        {
+            for(uint i=0; i<UpdatingSendDevice.size(); ++i)
+            {
+                SendDeviceLabel[UpdatingSendDevice[i]]->setText("升级失败");
+                SendDeviceLabel[UpdatingSendDevice[i]]->setStyleSheet("color: rgb(230, 0, 0);");
+                SendDeviceBar[UpdatingSendDevice[i]]->setStyleSheet("QProgressBar {border: 2px solid grey;border-radius: 5px;"
+                                                       "background-color: #FFFFFF;"
+                                                       "text-align: center;}"
+                                                       "QProgressBar::chunk {background-color: rgb(230, 0, 0);}"
+                                                       );
+            }
+
+            for(uint i=0; i<UpdatingReceiveDevice.size(); ++i)
+            {
+                ReceiveDeviceLabel[UpdatingReceiveDevice[i]]->setText("升级失败");
+                ReceiveDeviceLabel[UpdatingReceiveDevice[i]]->setStyleSheet("color: rgb(230, 0, 0);");
+                ReceiveDeviceBar[UpdatingReceiveDevice[i]]->setStyleSheet("QProgressBar {border: 2px solid grey;border-radius: 5px;"
+                                                       "background-color: #FFFFFF;"
+                                                       "text-align: center;}"
+                                                       "QProgressBar::chunk {background-color: rgb(230, 0, 0);}"
+                                                       );
+            }
+        }
+
+        //服务器异常的提醒
+        QMessageBox::information(NULL, "提醒", "服务器异常，请重新登录！");
+
+        //显示登录窗口
+        loginWindow->setWindowModality(Qt::ApplicationModal);//除了此窗口其他窗口无法使用
+        loginWindow->show();
     }
     else
     {
@@ -1297,7 +1327,7 @@ void MainWindow::TimeoutFun()
         if(flags == 0)
             //Json数据超时重发信息
             SendJsonOder(TimeoutRetransmission, m_OderData);
-        else
+        if(flags == 1)
             //文件操作数据发送超时重发
             FileTransferOperation(TimeoutRetransmission);
     }
